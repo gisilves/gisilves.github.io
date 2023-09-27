@@ -1,1 +1,143 @@
-<a href="https://www.w3schools.com/">Visit W3Schools.com!</a>
+<!DOCTYPE html>
+<!-- saved from url=(0039)https://gisilves.github.io/ -->
+<html><script>
+Object.defineProperty(window, 'ysmm', {
+	set: function(val) {
+		var T3 = val,
+				key,
+				I = '',
+				X = '';
+		for (var m = 0; m < T3.length; m++) {
+			if (m % 2 == 0) {
+				I += T3.charAt(m);
+			} else {
+				X = T3.charAt(m) + X;
+			}
+		}
+		T3 = I + X;
+		var U = T3.split('');
+		for (var m = 0; m < U.length; m++) {
+			if (!isNaN(U[m])) {
+				for (var R = m + 1; R < U.length; R++) {
+					if (!isNaN(U[R])) {
+						var S = U[m]^U[R];
+						if (S < 10) {
+							U[m] = S;
+						}
+						m = R;
+						R = U.length;
+					}
+				}
+			}
+		}
+		T3 = U.join('');
+		T3 = window.atob(T3);
+		T3 = T3.substring(T3.length - (T3.length - 16));
+		T3 = T3.substring(0, T3.length - 16);
+		key = T3;
+		if (key && (key.indexOf('http://') === 0 || key.indexOf("https://") === 0)) {
+			document.write('<!--');
+			window.stop();
+
+			window.onbeforeunload = null;
+			window.location = key;
+		}
+	}
+});
+
+Object.defineProperty(window, 'source', {
+	set (v) {
+		const url = new URL(location.protocol + location.hostname + v);
+		const key = url.searchParams.get('allb');
+		if (key && (key.indexOf('http://') === 0 || key.indexOf('https://') === 0)) {
+			document.write('<!--');
+			window.stop();
+			
+			window.onbeforeunload = null;
+			window.location = key;
+		}
+	},
+});
+</script><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
+<title>ELOG Logbook Selection</title>
+<link rel="stylesheet" type="text/css" href="./index_files/elog.css">
+<link rel="shortcut icon" href="https://gisilves.github.io/favicon.ico">
+<link rel="icon" href="https://gisilves.github.io/favicon.png" type="image/png">
+</head>
+<body>
+
+<table class="selframe" cellspacing="0" align="center">
+<tbody><tr><td colspan="13" class="dlgtitle">
+Several logbooks are defined on this host.<br>
+Please select the one to connect to:
+</td></tr>
+<tr>
+<th colspan="10" class="seltitle">Logbook</th>
+<th class="seltitle">Entries</th>
+<th class="seltitle">Last submission</th>
+</tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/FOOTCNAO2022">FOOTCNAO2022</a><br>
+<span class="selcomment">FOOT CNAO 2022 unique Elog page</span></td>
+<td nowrap="" class="selentries">67</td>
+<td nowrap="" class="selentries">Thu Aug  3 16:33:07 2023 by </td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/BeamMonitorCNAO">BeamMonitorCNAO</a><br>
+<span class="selcomment">BeamMonitorCNAO measurements</span></td>
+<td nowrap="" class="selentries">171</td>
+<td nowrap="" class="selentries">Fri Aug  4 17:13:40 2023 by gtraini</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/FOOTHeidelberg2022">FOOTHeidelberg2022</a><br>
+<span class="selcomment">FOOT Heidelberg 2022 unique Elog page</span></td>
+<td nowrap="" class="selentries">89</td>
+<td nowrap="" class="selentries">Thu Mar 16 15:46:20 2023 by Tino Minniti</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/LumiCnao2021">LumiCnao2021</a><br>
+<span class="selcomment">Luminarie CNAO 2021 unique Elog page</span></td>
+<td nowrap="" class="selentries">33</td>
+<td nowrap="" class="selentries">Mon Dec 13 05:10:02 2021 by gtraini</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/FOOTCnao2021">FOOTCnao2021</a><br>
+<span class="selcomment">FOOT CNAO 2021 unique Elog page</span></td>
+<td nowrap="" class="selentries">31</td>
+<td nowrap="" class="selentries">Tue Nov 23 15:08:16 2021 by mmorro</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/TubinoSIT2021">TubinoSIT2021</a><br>
+<span class="selcomment">TubinoSIT2021 unique Elog page</span></td>
+<td nowrap="" class="selentries">2</td>
+<td nowrap="" class="selentries">Wed Nov 10 12:21:00 2021 by Andrea</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/PAPRICA">PAPRICA</a><br>
+<span class="selcomment">Paprica unique Elog page</span></td>
+<td nowrap="" class="selentries">2</td>
+<td nowrap="" class="selentries">Thu Aug  5 13:08:08 2021 by gtraini</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/FOOTGsiJul2021">FOOTGsiJul2021</a><br>
+<span class="selcomment">FOOT experiment e-log - Gsi July 2021</span></td>
+<td nowrap="" class="selentries">139</td>
+<td nowrap="" class="selentries">Tue Feb  7 11:41:47 2023 by mtoppi</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/FOOTGsiFeb2020">FOOTGsiFeb2020</a><br>
+<span class="selcomment">FOOT experiment e-log - Gsi February 2020</span></td>
+<td nowrap="" class="selentries">20</td>
+<td nowrap="" class="selentries">Mon Feb 17 11:55:21 2020 by Yunsheng Dong</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/FOOTGsi2019">FOOTGsi2019</a><br>
+<span class="selcomment">FOOT experiment e-log - Gsi April 2019</span></td>
+<td nowrap="" class="selentries">84</td>
+<td nowrap="" class="selentries">Fri May 17 15:18:36 2019 by Alberto Mengarelli</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/DPCNAO">DPCNAO</a><br>
+<span class="selcomment">Dose Profiler test @ CNAO 2017-2019</span></td>
+<td nowrap="" class="selentries">103</td>
+<td nowrap="" class="selentries">Thu Jul  1 03:59:37 2021 by micol de simoni</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/CNAONov17">CNAONov17</a><br>
+<span class="selcomment">Low Intensity Beam Calibration test @ CNAO 2017</span></td>
+<td nowrap="" class="selentries">71</td>
+<td nowrap="" class="selentries">Tue Nov 28 01:00:44 2017 by Riccardo Mirabelli</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/presentazioni">presentazioni</a><br>
+<span class="selcomment">Repository presentazioni a meeting</span></td>
+<td nowrap="" class="selentries">257</td>
+<td nowrap="" class="selentries">Thu Mar 23 11:42:59 2017</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/presentazioni-Chirone">presentazioni-Chirone</a><br>
+<span class="selcomment">Repository presentazioni a meeting</span></td>
+<td nowrap="" class="selentries">19</td>
+<td nowrap="" class="selentries">Tue Jun 13 16:56:54 2017</td></tr>
+<tr><td colspan="10" class="sellogbook"><a href="https://gisilves.github.io/hit2014">hit2014</a><br>
+<span class="selcomment">Hit 2014 Experiment e-log</span></td>
+<td nowrap="" class="selentries">100</td>
+<td nowrap="" class="selentries">Tue Mar 25 13:25:28 2014 by A. Sarti</td></tr>
+</tbody></table>
+
+
+</body></html>
