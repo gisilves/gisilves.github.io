@@ -56,13 +56,22 @@
   <!-- Lightbox JS -->
   <script src="lightbox2/js/lightbox-plus-jquery.js"></script>
 
+  
   <!-- Generate images dynamically -->
   <script>
     const gallery = document.getElementById('gallery');
-    for (let i = 1; i <= 162; i++) {
-      const num = String(i)
-      const title = `photo ${i}`;
-      const url = `https://res.cloudinary.com/dqej3n71g/image/upload/v1751181827/`
+    const url = `https://res.cloudinary.com/dqej3n71g/image/upload/v1751181827/`
+    
+    const firstImageHTML = `
+    <a href="${url}pandino.jpg" data-lightbox="mygallery" data-title="photo 1">
+        <img src="${url}pandino_thumbnail.jpg"" alt="photo 1" loading="lazy">
+    </a>`;
+    gallery.insertAdjacentHTML('beforeend', firstImageHTML);
+    
+    for (let i = 2; i <= 162; i++) {
+        const num = String(i)
+        const title = `photo ${i}`;
+        const url = `https://res.cloudinary.com/dqej3n71g/image/upload/v1751181827/`
       const imageHTML = `
       <a href="${url}pandino-${num}.jpg" data-lightbox="mygallery" data-title="${title}">
             <img src="${url}pandino_thumbnail-${num}.jpg"" alt="${title}" loading="lazy">
