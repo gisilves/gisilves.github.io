@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Photo Gallery</title>
+  <link href="lightbox2/css/lightbox.min.css" rel="stylesheet" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      color: #333;
+      text-align: center;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #222;
+      margin-bottom: 30px;
+    }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    .gallery-grid a img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+      transition: transform 0.2s ease;
+    }
+    .gallery-grid a img:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Photo Gallery</h1>
+    <div class="gallery-grid">
+      <a href="images/photo1.jpg" data-lightbox="gallery" data-title="Photo 1">
+        <img src="images/photo1.jpg" alt="Photo 1">
+      </a>
+      <a href="images/photo2.jpg" data-lightbox="gallery" data-title="Photo 2">
+        <img src="images/photo2.jpg" alt="Photo 2">
+      </a>
+      <a href="images/photo3.jpg" data-lightbox="gallery" data-title="Photo 3">
+        <img src="images/photo3.jpg" alt="Photo 3">
+      </a>
+    </div>
+  </div>
+  <script src="lightbox2/js/lightbox.min.js"></script>
+</body>
+</html>
