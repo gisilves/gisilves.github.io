@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Photo Gallery</title>
-  <link href="lightbox2/css/lightbox.css" rel="stylesheet" />
+  <title>Panda a Pandino 2025</title>
+
+  <!-- Asynchronously load Lightbox CSS -->
+  <link rel="preload" href="lightbox2/css/lightbox.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="lightbox2/css/lightbox.css"></noscript>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -46,18 +50,24 @@
 <body>
   <div class="container">
     <h1>Panda a Pandino 2025</h1>
-    <div class="gallery-grid">
-      <a href="images/image1.jpg" data-lightbox="gallery" data-title="Photo 1">
-        <img src="images/image1.jpg" alt="Photo 1">
-      </a>
-      <a href="images/image2.jpg" data-lightbox="gallery" data-title="Photo 2">
-        <img src="images/image2.jpg" alt="Photo 2">
-      </a>
-      <a href="images/image3.jpg" data-lightbox="gallery" data-title="Photo 3">
-        <img src="images/image3.jpg" alt="Photo 3">
-      </a>
-    </div>
+    <div class="gallery-grid" id="gallery"></div>
   </div>
-  <script src="lightbox2/js/lightbox.js"></script>
+
+  <!-- Lightbox JS -->
+  <script src="lightbox2/js/lightbox-plus-jquery.js"></script>
+
+  <!-- Generate images dynamically -->
+  <script>
+    const gallery = document.getElementById('gallery');
+    for (let i = 2; i <= 163; i++) {
+      const num = String(i).padStart(3, '0');
+      const title = `photo ${i}`;
+      const imageHTML = `
+        <a href="images/photo${num}.jpg" data-lightbox="mygallery" data-title="${title}">
+          <img src="images/thumbnails/photo${num}.jpg" alt="${title}" loading="lazy">
+        </a>`;
+      gallery.insertAdjacentHTML('beforeend', imageHTML);
+    }
+  </script>
 </body>
 </html>
