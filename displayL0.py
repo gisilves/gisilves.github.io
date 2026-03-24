@@ -90,6 +90,63 @@ def import_csv(filename):
             points.append(tuple(map(float, line.split(','))))
     return points
 
+def get_tiles_in_radius(p_x, p_y, radius, die_source):
+    hits = []
+    data = die_source.data
+    r_sq = radius**2
+
+    for i in range(len(data['x'])):
+        # Full die area corners
+        corners = [
+            (data['x_bl'][i], data['y_bl'][i]),
+            (data['x_br'][i], data['y_br'][i]),
+            (data['x_tr'][i], data['y_tr'][i]),
+            (data['x_tl'][i], data['y_tl'][i])
+        ]
+
+        # 1. Point-in-Polygon check (Circle center inside die)
+        inside = False
+        k = len(corners) - 1
+        for j in range(len(corners)):
+            if ((corners[j][1] > p_y) != (corners[k][1] > p_y)) and \
+               (p_x < (corners[k][0] - corners[j][0]) * (p_y - corners[j][1]) / 
+               (corners[k][1] - corners[j][1]) + corners[j][0]):
+                inside = not inside
+            k = j
+        
+        if inside:
+            hits.append(f"{data['lef'][i]}")
+            continue
+
+        # 2. Shortest distance from circle center to die edges
+        hit_edge = False
+        for m in range(len(corners)):
+            p1 = corners[m]
+            p2 = corners[(m + 1) % len(corners)]
+            
+            dx = p2[0] - p1[0]
+            dy = p2[1] - p1[1]
+            
+            # Avoid division by zero for degenerate edges
+            mag_sq = dx*dx + dy*dy
+            if mag_sq == 0: continue
+            
+            t = ((p_x - p1[0]) * dx + (p_y - p1[1]) * dy) / mag_sq
+            t = max(0, min(1, t))  # Clamp to edge segment
+            
+            closest_x = p1[0] + t * dx
+            closest_y = p1[1] + t * dy
+            
+            dist_sq = (p_x - closest_x)**2 + (p_y - closest_y)**2
+            if dist_sq <= r_sq:
+                hit_edge = True
+                break
+        
+        if hit_edge:
+            hits.append(f"{data['lef'][i]}")
+
+    return set(hits)
+
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
@@ -185,6 +242,8 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     points = []
     if points_file is not None:
         points = import_csv(points_file)
+        
+    points[:11]
             
     # Correct for different robotic arms coordinate system
     if "AMS-L0 U Detector Layout" in cfg["TITLE"]:
@@ -239,7 +298,15 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
             die_data["bbox_ymax"].append(max(all_cy))
 
     die_source = ColumnDataSource(die_data)
-
+    
+    # Get hits in 10mm radius of each TB point and save them to a new csv file
+    hits_file = f"{cfg['TITLE'][7]}_TB_hits.csv"
+    with open(hits_file, "w") as f:
+        f.write("Layer,TB point,Hits\n")
+        for idx, (ptx, pty) in enumerate(points, start=1):
+            hits = get_tiles_in_radius(ptx, pty, 10, die_source)
+            f.write(f"{cfg['TITLE'][7]},{idx},{hits}\n")
+            
     # ---- Active area ----
     active_data = dict(xs=[], ys=[])
     for (qname, fx, fy) in QL_LIST:
@@ -598,9 +665,8 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     # ---- CSV points overlay (captured for toggle) ----
     points_renderers = []
     if points:
-        rot_pts = points
-        px_list = [r[0] for r in rot_pts]
-        py_list = [r[1] for r in rot_pts]
+        px_list = [r[0] for r in points]
+        py_list = [r[1] for r in points]
         r_scatter = p.scatter(x=px_list, y=py_list,
                               marker="circle", size=8,
                               fill_color="#ffff00", fill_alpha=0.9,
@@ -608,7 +674,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
                               visible=False)
         points_renderers.append(r_scatter)
         
-        for idx, (ptx, pty) in enumerate(rot_pts, start=1):
+        for idx, (ptx, pty) in enumerate(points, start=1):
             r_txt = p.text(x=[ptx], y=[pty], 
                            text=[str(idx)],
                            text_font_size="8pt", text_font_style="bold",
