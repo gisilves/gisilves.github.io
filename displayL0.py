@@ -5,7 +5,7 @@ Script generates html file detector_layout.html
 
 import numpy as np
 from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup
+from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button
 from bokeh.layouts import row, column
 from bokeh.io import output_file
 
@@ -391,6 +391,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
         tools="pan,wheel_zoom,tap",
         active_scroll="wheel_zoom",
         match_aspect=True,
+        output_backend="webgl",
     )
     p.toolbar.logo = None
 
@@ -720,6 +721,21 @@ def make_checkbox(toggle_groups):
     cb.js_on_change("active", cb_callback)
     return cb
 
+def make_file_download_button(filename, title):
+    btn = Button(label=f"Download {title}", button_type="warning", width=200)
+    
+    # JavaScript to trigger a browser download for a local file
+    callback = CustomJS(args=dict(file=filename), code="""
+        const a = document.createElement('a');
+        a.href = file; // Path relative to the HTML file
+        a.download = file;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    """)
+    
+    btn.js_on_click(callback)
+    return btn
 
 if __name__ == "__main__":
     
@@ -730,4 +746,12 @@ if __name__ == "__main__":
     cb_y = make_checkbox(tg_y)
 
     output_file("AMS_L0_detector_layout.html", title="AMS-L0 Detector Layout")
-    show(row(column(p_u, cb_u), column(p_y, cb_y)))
+    btn_file_U = make_file_download_button("U_TB_hits.csv", "U hits list with LEF")
+    btn_file_Y = make_file_download_button("Y_TB_hits.csv", "Y hits list with LEF")
+    
+    # Update layout to include the buttons
+    layout = column(
+        row(column(p_u, cb_u), column(p_y, cb_y)),
+        row(btn_file_U, btn_file_Y),
+    )
+    show(layout)
