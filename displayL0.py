@@ -167,8 +167,8 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     _cos = np.cos(np.radians(ROTATION_DEG))
     _sin = np.sin(np.radians(ROTATION_DEG))
 
-    def rotate(x, y):
-        return x * _cos - y * _sin, x * _sin + y * _cos
+    def rotate(x, y, deg):
+        return x * np.cos(np.radians(deg)) - y * np.sin(np.radians(deg)), x * np.sin(np.radians(deg)) + y * np.cos(np.radians(deg))
 
     # ---- Silicon die data ----
     die_data = {k: [] for k in [
@@ -181,26 +181,34 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     ]}
     
     
-    # If points file is provided, use it to define measurement points at TB
+    # If robotic arms points file is provided, use it to define measurement points at TB
     points = []
     if points_file is not None:
         points = import_csv(points_file)
+            
+    # Correct for different robotic arms coordinate system
+    if "AMS-L0 U Detector Layout" in cfg["TITLE"]:
+        points = [(- p[0], p[1]) for p in points]
+    
+    # Note: combination of coordinate system correction and mirroring 
+    # (Y layer seen from above AMS looking down)
+    # gives points with the same coordinates as the ones in the csv file
 
     for (qname, fx, fy) in QL_LIST:
         for (col, row_idx, xl, yl) in q1_cells_local:
             xg, yg = transform(xl, yl, fx, fy)
 
-            x_bl, y_bl = rotate(xg,              yg)
-            x_br, y_br = rotate(xg + CELL_WIDTH,  yg)
-            x_tr, y_tr = rotate(xg + CELL_WIDTH,  yg + CELL_HEIGHT)
-            x_tl, y_tl = rotate(xg,              yg + CELL_HEIGHT)
+            x_bl, y_bl = rotate(xg,              yg, ROTATION_DEG)
+            x_br, y_br = rotate(xg + CELL_WIDTH,  yg, ROTATION_DEG)
+            x_tr, y_tr = rotate(xg + CELL_WIDTH,  yg + CELL_HEIGHT, ROTATION_DEG)
+            x_tl, y_tl = rotate(xg,              yg + CELL_HEIGHT, ROTATION_DEG)
             cx = (x_bl + x_br + x_tr + x_tl) / 4
             cy = (y_bl + y_br + y_tr + y_tl) / 4
 
-            ax_bl_x_r, ax_bl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y)
-            ax_br_x_r, ax_br_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y)
-            ax_tr_x_r, ax_tr_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT)
-            ax_tl_x_r, ax_tl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT)
+            ax_bl_x_r, ax_bl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y, ROTATION_DEG)
+            ax_br_x_r, ax_br_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y, ROTATION_DEG)
+            ax_tr_x_r, ax_tr_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG)
+            ax_tl_x_r, ax_tl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG)
 
             lbl     = LADDER_LABELS[qname][col]
             lbl_lef = LEF_LABELS[qname][col]
@@ -238,10 +246,10 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
         for (col, row_idx, xl, yl) in q1_cells_local:
             xg, yg = transform(xl, yl, fx, fy)
             corners = [
-                rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y),
-                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y),
-                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT),
-                rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT),
+                rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y, ROTATION_DEG),
+                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y, ROTATION_DEG),
+                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG),
+                rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG),
             ]
             active_data["xs"].append([c[0] for c in corners])
             active_data["ys"].append([c[1] for c in corners])
@@ -258,10 +266,10 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
         by_loc = (CY + top_local + LABEL_PAD_Y) if flip_y == 1 else \
                  (-CY - top_local - LABEL_PAD_Y - LABEL_HEIGHT)
         bw = CELL_WIDTH - 4
-        c0 = rotate(bx_loc,      by_loc)
-        c1 = rotate(bx_loc + bw, by_loc)
-        c2 = rotate(bx_loc + bw, by_loc + LABEL_HEIGHT)
-        c3 = rotate(bx_loc,      by_loc + LABEL_HEIGHT)
+        c0 = rotate(bx_loc,      by_loc, ROTATION_DEG)
+        c1 = rotate(bx_loc + bw, by_loc, ROTATION_DEG)
+        c2 = rotate(bx_loc + bw, by_loc + LABEL_HEIGHT, ROTATION_DEG)
+        c3 = rotate(bx_loc,      by_loc + LABEL_HEIGHT, ROTATION_DEG)
         xs = [c0[0], c1[0], c2[0], c3[0]]
         ys = [c0[1], c1[1], c2[1], c3[1]]
         return xs, ys, sum(xs)/4, sum(ys)/4
@@ -281,11 +289,11 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
             xg, yg = transform(xl, yl, fx, fy)
             for (dx, dy) in CROSS_POSITIONS_LOCAL:
                 ccx, ccy = xg + dx, yg + dy
-                ax, ay = rotate(ccx - CROSS_ARM_X, ccy)
-                bx, by = rotate(ccx + CROSS_ARM_X, ccy)
+                ax, ay = rotate(ccx - CROSS_ARM_X, ccy, ROTATION_DEG)
+                bx, by = rotate(ccx + CROSS_ARM_X, ccy, ROTATION_DEG)
                 cross_xs.append([ax, bx]); cross_ys.append([ay, by])
-                ax, ay = rotate(ccx, ccy - CROSS_ARM_Y)
-                bx, by = rotate(ccx, ccy + CROSS_ARM_Y)
+                ax, ay = rotate(ccx, ccy - CROSS_ARM_Y, ROTATION_DEG)
+                bx, by = rotate(ccx, ccy + CROSS_ARM_Y, ROTATION_DEG)
                 cross_xs.append([ax, bx]); cross_ys.append([ay, by])
     cross_source = ColumnDataSource(dict(xs=cross_xs, ys=cross_ys))
 
@@ -352,14 +360,14 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
             xg, yg = transform(xl, yl, fx, fy)
             if cfg["ROTATION_DEG"] == 0:
                 if fy == -1:
-                    brx, bry = rotate(xg + CELL_WIDTH - 20, yg + 10)
+                    brx, bry = rotate(xg + CELL_WIDTH - 20, yg + 10, ROTATION_DEG)
                 else:
-                    brx, bry = rotate(xg + 10, yg + CELL_HEIGHT - 30)
+                    brx, bry = rotate(xg + 10, yg + CELL_HEIGHT - 30, ROTATION_DEG)
             else:
                 if fy == -1:
-                    brx, bry = rotate(xg + 10, yg + 10)
+                    brx, bry = rotate(xg + 10, yg + 10, ROTATION_DEG)
                 else:
-                    brx, bry = rotate(xg + CELL_WIDTH - 20, yg + CELL_HEIGHT - 30)
+                    brx, bry = rotate(xg + CELL_WIDTH - 20, yg + CELL_HEIGHT - 30, ROTATION_DEG)
             r = p.text(x=[brx], y=[bry], text=["0"],
                        angle=rot_rad,
                        text_font_size="7pt", text_font_style="bold",
@@ -590,7 +598,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     # ---- CSV points overlay (captured for toggle) ----
     points_renderers = []
     if points:
-        rot_pts = [rotate(pt[0], pt[1]) for pt in points]
+        rot_pts = points
         px_list = [r[0] for r in rot_pts]
         py_list = [r[1] for r in rot_pts]
         r_scatter = p.scatter(x=px_list, y=py_list,
@@ -599,8 +607,10 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
                               line_color="#333300", line_width=1,
                               visible=False)
         points_renderers.append(r_scatter)
-        for idx, (ptx, pty) in enumerate(points, start=1):
-            r_txt = p.text(x=[ptx], y=[pty], text=[str(idx)],
+        
+        for idx, (ptx, pty) in enumerate(rot_pts, start=1):
+            r_txt = p.text(x=[ptx], y=[pty], 
+                           text=[str(idx)],
                            text_font_size="8pt", text_font_style="bold",
                            text_color="#000000",
                            text_align="left", text_baseline="bottom",
@@ -647,11 +657,11 @@ def make_checkbox(toggle_groups):
 
 if __name__ == "__main__":
     
-    p_u, tg_u = make_detector_panel(CFG_U, width=850, height=850)
-    p_y, tg_y = make_detector_panel(CFG_Y, width=850, height=850)
+    p_u, tg_u = make_detector_panel(CFG_U, width=850, height=850, points_file = "Targets_Rear_XYAdjusted.csv")
+    p_y, tg_y = make_detector_panel(CFG_Y, width=850, height=850, points_file ="Targets_Front_XYAdjusted.csv")
 
     cb_u = make_checkbox(tg_u)
     cb_y = make_checkbox(tg_y)
 
-    output_file("detector_layout.html", title="AMS-L0 Detector Layout")
+    output_file("AMS_L0_detector_layout.html", title="AMS-L0 Detector Layout")
     show(row(column(p_u, cb_u), column(p_y, cb_y)))
