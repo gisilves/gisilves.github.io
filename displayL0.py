@@ -698,7 +698,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
 
 
 
-def make_checkbox(toggle_groups):
+def make_checkbox(toggle_groups, _is_inline=True):
     labels = list(toggle_groups.keys())
     all_renderers = list(toggle_groups.values())  # list of lists
 
@@ -706,7 +706,7 @@ def make_checkbox(toggle_groups):
         labels=labels,
         active=[i for i in range(len(labels)) if labels[i] != "TB Points"],  # Points off by default
         width=750,
-        inline=True,
+        inline=_is_inline,
         align='center',
     )
 
@@ -737,21 +737,57 @@ def make_file_download_button(filename, title):
     btn.js_on_click(callback)
     return btn
 
+def make_open_page_button(link, title):
+    btn = Button(label = f"Open {title}", button_type = "warning", width = 200)
+
+    cb = CustomJS(args=dict(file=link), code='''
+              window.open(file, '_blank');
+              ''')
+    btn.js_on_click(cb)
+    return btn
+
 if __name__ == "__main__":
     
-    p_u, tg_u = make_detector_panel(CFG_U, width=850, height=850, points_file = "Targets_Rear_XYAdjusted.csv")
-    p_y, tg_y = make_detector_panel(CFG_Y, width=850, height=850, points_file ="Targets_Front_XYAdjusted.csv")
-
-    cb_u = make_checkbox(tg_u)
-    cb_y = make_checkbox(tg_y)
-
-    output_file("AMS_L0_detector_layout.html", title="AMS-L0 Detector Layout")
+    p_u_pts, tg_u_pts = make_detector_panel(CFG_U, width=850, height=850, points_file = "Targets_Rear_XYAdjusted.csv")
+    p_y_pts, tg_y_pts = make_detector_panel(CFG_Y, width=850, height=850, points_file = "Targets_Front_XYAdjusted.csv")
+    
     btn_file_U = make_file_download_button("U_TB_hits.csv", "U hits list with LEF")
     btn_file_Y = make_file_download_button("Y_TB_hits.csv", "Y hits list with LEF")
+
+    cb_u_pts = make_checkbox(tg_u_pts, False)
+    cb_y_pts = make_checkbox(tg_y_pts, False)
+
+    output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout")
+
     
     # Update layout to include the buttons
-    layout = column(
-        row(column(p_u, cb_u), column(p_y, cb_y)),
-        row(btn_file_U, btn_file_Y),
-    )
+    layout = row(p_u_pts, column(cb_u_pts, btn_file_U))
+    show(layout)
+    
+    output_file("AMS_L0_detector_layout_Y.html", title="AMS-L0 Detector Layout")
+    
+    # Update layout to include the buttons
+    layout = row(p_y_pts, column(cb_y_pts, btn_file_Y))
+    show(layout)
+    
+    p_u, tg_u = make_detector_panel(CFG_U, width=850, height=850)
+    p_y, tg_y = make_detector_panel(CFG_Y, width=850, height=850)
+    
+    # Remove TB Points toggle group from the checkboxes
+    tg_u.pop("TB Points")
+    tg_y.pop("TB Points")
+    cb_u = make_checkbox(tg_u)
+    cb_y = make_checkbox(tg_y)
+    
+    btn_open_U = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 U Detector Layout")
+    btn_open_Y = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Y Detector Layout")
+    
+    output_file("AMS_L0_detector_layout.html", title="AMS-L0 Detector Layout")
+    
+    # Update layout to include the buttons
+    layout = row(
+        column(p_u, cb_u, btn_open_U, sizing_mode="stretch_width", align="center"),
+        column(p_y, cb_y, btn_open_Y, sizing_mode="stretch_width", align="center"),
+        sizing_mode="stretch_width"
+    )    
     show(layout)
