@@ -779,8 +779,8 @@ if __name__ == "__main__":
     cb_u = make_checkbox(tg_u)
     cb_y = make_checkbox(tg_y)
     
-    btn_open_U = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 U Detector Layout")
-    btn_open_Y = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Y Detector Layout")
+    btn_open_U = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 U Detector Layout U")
+    btn_open_Y = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Y Detector Layout Y")
     
     output_file("AMS_L0_detector_layout.html", title="AMS-L0 Detector Layout")
     
