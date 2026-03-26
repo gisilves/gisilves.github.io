@@ -7,14 +7,8 @@ import numpy as np
 from bokeh.plotting import figure, show
 from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button
 from bokeh.layouts import row, column
-from bokeh.io import output_file
-from bokeh.models import Div
-import base64
+from bokeh.io import output_file save
 
-
-# Read favicon.png
-with open("favicon.png", "rb") as f:
-    b64 = base64.b64encode(f.read()).decode("utf-8")
     
 # ---------------------------------------------------------------------------
 # Detector configurations
@@ -682,26 +676,40 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     die_source.selected.js_on_change("indices", tap_cb)
         
     # ---- Axis arrows (captured for toggle) ----
-    ARROW_ORIGIN_X = 0
-    ARROW_ORIGIN_Y = 0
-    ARROW_LENGTH   = 250
+    SCREEN_ORIGIN_X = 20
+    SCREEN_ORIGIN_Y = 100
+    SCREEN_LENGTH   = 50
 
-    arr_x = Arrow(x_start=ARROW_ORIGIN_X, y_start=ARROW_ORIGIN_Y,
-                  x_end=ARROW_ORIGIN_X + ARROW_LENGTH, y_end=ARROW_ORIGIN_Y,
-                  end=OpenHead(size=10, line_color="#ff0000"),
-                  line_color="#ff0000", line_width=3)
-    arr_y = Arrow(x_start=ARROW_ORIGIN_X, y_start=ARROW_ORIGIN_Y,
-                  x_end=ARROW_ORIGIN_X, y_end=ARROW_ORIGIN_Y + ARROW_LENGTH,
-                  end=OpenHead(size=10, line_color="#ff0000"),
-                  line_color="#ff0000", line_width=3)
+    # X-Axis (Fixed)
+    arr_x = Arrow(x_start=SCREEN_ORIGIN_X, y_start=SCREEN_ORIGIN_Y,
+                x_end=SCREEN_ORIGIN_X + SCREEN_LENGTH, y_end=SCREEN_ORIGIN_Y,
+                start_units='screen', end_units='screen',
+                end=OpenHead(size=10, line_color="#ff0000"),
+                line_color="#ff0000", line_width=3, level='overlay')
+
+    # Y-Axis (Fixed)
+    arr_y = Arrow(x_start=SCREEN_ORIGIN_X, y_start=SCREEN_ORIGIN_Y,
+                x_end=SCREEN_ORIGIN_X, y_end=SCREEN_ORIGIN_Y - SCREEN_LENGTH,
+                start_units='screen', end_units='screen',
+                end=OpenHead(size=10, line_color="#ff0000"),
+                line_color="#ff0000", line_width=3, level='overlay')
+
+    # Labels (Fixed)
+    txt_x = Label(x=SCREEN_ORIGIN_X + SCREEN_LENGTH + 5, y=SCREEN_ORIGIN_Y, 
+                x_units='screen', y_units='screen',
+                text="Y", text_font_size="10pt", text_color="#ff0000",
+                text_baseline="middle")
+
+    txt_y = Label(x=SCREEN_ORIGIN_X, y=SCREEN_ORIGIN_Y - SCREEN_LENGTH - 15, 
+                x_units='screen', y_units='screen',
+                text="X", text_font_size="10pt", text_color="#ff0000",
+                text_align="center")
+
     p.add_layout(arr_x)
     p.add_layout(arr_y)
-    txt_x = p.text(x=[ARROW_ORIGIN_X + ARROW_LENGTH + 50], y=[ARROW_ORIGIN_Y],
-                   text=["Y"], text_font_size="12pt", text_color="#ff0000",
-                   text_align="center", text_baseline="middle")
-    txt_y = p.text(x=[ARROW_ORIGIN_X], y=[ARROW_ORIGIN_Y + ARROW_LENGTH + 50],
-                   text=["X"], text_font_size="12pt", text_color="#ff0000",
-                   text_align="center", text_baseline="middle")
+    p.add_layout(txt_x)
+    p.add_layout(txt_y)
+
     axis_renderers = [arr_x, arr_y, txt_x, txt_y]
     
     
@@ -823,7 +831,7 @@ if __name__ == "__main__":
     output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout")
     # Update layout to include the buttons
     layout = row(p_u_pts, column(cb_u_pts, btn_file_U))
-    show(layout)
+    save(layout)
     # Add favicon to the html file
     with open('AMS_L0_detector_layout_U.html', 'r+') as file:
         content = file.readlines()
@@ -838,7 +846,7 @@ if __name__ == "__main__":
     output_file("AMS_L0_detector_layout_Y.html", title="AMS-L0 Detector Layout")        
     # Update layout to include the buttons
     layout = row(p_y_pts, column(cb_y_pts, btn_file_Y))
-    show(layout)
+    save(layout)
     # Add favicon to the html file
     with open('AMS_L0_detector_layout_Y.html', 'r+') as file:
         content = file.readlines()
@@ -870,7 +878,7 @@ if __name__ == "__main__":
         column(p_y, cb_y, btn_open_Y, sizing_mode="stretch_width", align="center"),
         sizing_mode="stretch_width"
     )    
-    show(layout)
+    save(layout)
     # Add favicon to the html file
     with open('AMS_L0_detector_layout.html', 'r+') as file:
         content = file.readlines()
