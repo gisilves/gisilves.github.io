@@ -8,7 +8,14 @@ from bokeh.plotting import figure, show
 from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button
 from bokeh.layouts import row, column
 from bokeh.io import output_file
+from bokeh.models import Div
+import base64
 
+
+# Read favicon.png
+with open("favicon.png", "rb") as f:
+    b64 = base64.b64encode(f.read()).decode("utf-8")
+    
 # ---------------------------------------------------------------------------
 # Detector configurations
 # ---------------------------------------------------------------------------
@@ -242,9 +249,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     points = []
     if points_file is not None:
         points = import_csv(points_file)
-        
-    points[:11]
-            
+                    
     # Correct for different robotic arms coordinate system
     if "AMS-L0 U Detector Layout" in cfg["TITLE"]:
         points = [(- p[0], p[1]) for p in points]
@@ -299,13 +304,18 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
 
     die_source = ColumnDataSource(die_data)
     
-    # Get hits in 10mm radius of each TB point and save them to a new csv file
-    hits_file = f"{cfg['TITLE'][7]}_TB_hits.csv"
-    with open(hits_file, "w") as f:
-        f.write("Layer,TB point,Hits\n")
-        for idx, (ptx, pty) in enumerate(points, start=1):
-            hits = get_tiles_in_radius(ptx, pty, 10, die_source)
-            f.write(f"{cfg['TITLE'][7]},{idx},{hits}\n")
+    TB_hits = []
+    
+    if points_file is not None:
+        # Get hits in 10mm radius of each TB point and save them to a new csv file
+        hits_file = f"{cfg['TITLE'][7]}_TB_hits.csv"
+        print(f"Writing hits to {hits_file}")
+        with open(hits_file, "w") as f:
+            f.write("Layer,TB point,Hits\n")
+            for idx, (ptx, pty) in enumerate(points, start=1):
+                hits = get_tiles_in_radius(ptx, pty, 10, die_source)
+                f.write(f"{cfg['TITLE'][7]},{idx},{hits}\n")
+                TB_hits.append([cfg['TITLE'][7], idx, hits])
             
     # ---- Active area ----
     active_data = dict(xs=[], ys=[])
@@ -388,7 +398,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
         width=width, height=height,
         x_range=(full_x_start, full_x_end),
         y_range=(full_y_start, full_y_end),
-        tools="pan,wheel_zoom,tap",
+        tools="pan,wheel_zoom,tap,reset",
         active_scroll="wheel_zoom",
         match_aspect=True,
         output_backend="webgl",
@@ -518,127 +528,159 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     )
     p.add_layout(ram_lbl)
     
-    
-        
-    # ---- Zoom overlay labels ----
-    NUDGE_PX_AA  = 80
-    NUDGE_PX_DIE = 50
+    # ---- Build the name label ----
+    lbl_name = Label(
+        x=0, y=0, x_units="data", y_units="data",
+        text="",
+        text_font_size="14px", text_font_style="bold",
+        text_color="#f0f0f0",
+        text_align="center", text_baseline="middle",
+        background_fill_color="#222244", background_fill_alpha=0.9,
+        border_line_color="#888888", border_line_alpha=0.7,
+        padding=3, visible=False,
+    )
+    p.add_layout(lbl_name)
 
-    zoom_label_cfg = [
-        ("center", "middle",  ( 0,  0), 0,            True,  "#222244"),
-        ("left",   "bottom",  ( 1, -1), NUDGE_PX_AA,  False, "#ffffffdd"),
-        ("right",  "bottom",  (-1, -1), NUDGE_PX_AA,  False, "#ffffffdd"),
-        ("right",  "top",     (-1,  1), NUDGE_PX_AA,  False, "#ffffffdd"),
-        ("left",   "top",     ( 1,  1), NUDGE_PX_AA,  False, "#ffffffdd"),
-        ("left",   "bottom",  ( 1, -1), NUDGE_PX_DIE, False, "#dd5100dd"),
-        ("right",  "bottom",  (-1, -1), NUDGE_PX_DIE, False, "#dd5100dd"),
-        ("right",  "top",     (-1,  1), NUDGE_PX_DIE, False, "#dd5100dd"),
-        ("left",   "top",     ( 1,  1), NUDGE_PX_DIE, False, "#dd5100dd"),
-    ]
+    if points_file is None:
+        # ---- Si die HoverTool ----
+        si_hover = HoverTool(renderers=[die_glyph], tooltips=[
+            ("Quadrant",    "@qname"),
+            ("Si detector", "@label-@si_idx"),
+            ("LEF",         "@lef"),
+            ("Die BL",      "(@x_bl{0.0000}, @y_bl{0.0000})"),
+            ("Die BR",      "(@x_br{0.0000}, @y_br{0.0000})"),
+            ("Die TR",      "(@x_tr{0.0000}, @y_tr{0.0000})"),
+            ("Die TL",      "(@x_tl{0.0000}, @y_tl{0.0000})"),
+            ("Active BL",   "(@ax_bl_x{0.0000}, @ax_bl_y{0.0000})"),
+            ("Active BR",   "(@ax_br_x{0.0000}, @ax_br_y{0.0000})"),
+            ("Active TR",   "(@ax_tr_x{0.0000}, @ax_tr_y{0.0000})"),
+            ("Active TL",   "(@ax_tl_x{0.0000}, @ax_tl_y{0.0000})"),
+        ])
+        p.add_tools(si_hover)
 
-    zoom_labels = []
-    for cfg_l in zoom_label_cfg:
-        align, baseline, nudge_dir, px, bold, bg = cfg_l
-        if px == 0:
-            ox, oy = 0, 0
-        else:
+    if points_file is None:
+        # ---- Zoom overlay labels (corner labels only needed without TB points) ----
+        NUDGE_PX_AA  = 80
+        NUDGE_PX_DIE = 50
+
+        zoom_label_cfg = [
+            ("left",   "bottom",  ( 1, -1), NUDGE_PX_AA,  False, "#ffffffdd"),
+            ("right",  "bottom",  (-1, -1), NUDGE_PX_AA,  False, "#ffffffdd"),
+            ("right",  "top",     (-1,  1), NUDGE_PX_AA,  False, "#ffffffdd"),
+            ("left",   "top",     ( 1,  1), NUDGE_PX_AA,  False, "#ffffffdd"),
+            ("left",   "bottom",  ( 1, -1), NUDGE_PX_DIE, False, "#dd5100dd"),
+            ("right",  "bottom",  (-1, -1), NUDGE_PX_DIE, False, "#dd5100dd"),
+            ("right",  "top",     (-1,  1), NUDGE_PX_DIE, False, "#dd5100dd"),
+            ("left",   "top",     ( 1,  1), NUDGE_PX_DIE, False, "#dd5100dd"),
+        ]
+
+        corner_labels = []
+        for cfg_l in zoom_label_cfg:
+            align, baseline, nudge_dir, px, bold, bg = cfg_l
             if ROTATION_DEG == 0:
                 ox, oy = nudge_dir[0] * px, nudge_dir[1] * px
             else:
                 ox, oy = nudge_dir[0] * px * _cos, nudge_dir[1] * px * _sin
-        lbl_obj = Label(
-            x=0, y=0, x_units="data", y_units="data",
-            x_offset=ox, y_offset=oy,
-            text="",
-            text_font_size="14px" if bold else "11px",
-            text_font_style="bold" if bold else "normal",
-            text_color="#f0f0f0" if bold else "#111111",
-            text_align=align, text_baseline=baseline,
-            background_fill_color=bg, background_fill_alpha=0.9,
-            border_line_color="#888888", border_line_alpha=0.7,
-            padding=3, visible=False,
-        )
-        p.add_layout(lbl_obj)
-        zoom_labels.append(lbl_obj)
+            lbl_obj = Label(
+                x=0, y=0, x_units="data", y_units="data",
+                x_offset=ox, y_offset=oy,
+                text="",
+                text_font_size="11px", text_font_style="normal",
+                text_color="#111111",
+                text_align=align, text_baseline=baseline,
+                background_fill_color=bg, background_fill_alpha=0.9,
+                border_line_color="#888888", border_line_alpha=0.7,
+                padding=3, visible=False,
+            )
+            p.add_layout(lbl_obj)
+            corner_labels.append(lbl_obj)
 
-    # ---- Hover ----
-    hover = HoverTool(renderers=[die_glyph], tooltips=[
-        ("Quadrant",    "@qname"),
-        ("Si detector", "@label-@si_idx"),
-        ("LEF",         "@lef"),
-        ("Die BL",      "(@x_bl{0.0000}, @y_bl{0.0000})"),
-        ("Die BR",      "(@x_br{0.0000}, @y_br{0.0000})"),
-        ("Die TR",      "(@x_tr{0.0000}, @y_tr{0.0000})"),
-        ("Die TL",      "(@x_tl{0.0000}, @y_tl{0.0000})"),
-        ("Active BL",   "(@ax_bl_x{0.0000}, @ax_bl_y{0.0000})"),
-        ("Active BR",   "(@ax_br_x{0.0000}, @ax_br_y{0.0000})"),
-        ("Active TR",   "(@ax_tr_x{0.0000}, @ax_tr_y{0.0000})"),
-        ("Active TL",   "(@ax_tl_x{0.0000}, @ax_tl_y{0.0000})"),
-    ])
-    p.add_tools(hover)
+        zoom_labels = [lbl_name] + corner_labels
 
-    # ---- Tap-to-zoom ----
-    tap_cb = CustomJS(args=dict(
-        source=die_source,
-        x_range=p.x_range, y_range=p.y_range,
-        full_x_start=full_x_start, full_x_end=full_x_end,
-        full_y_start=full_y_start, full_y_end=full_y_end,
-        margin=ZOOM_MARGIN,
-        lbl_name=zoom_labels[0],
-        lbl_bl=zoom_labels[1],     lbl_br=zoom_labels[2],
-        lbl_tr=zoom_labels[3],     lbl_tl=zoom_labels[4],
-        lbl_die_bl=zoom_labels[5], lbl_die_br=zoom_labels[6],
-        lbl_die_tr=zoom_labels[7], lbl_die_tl=zoom_labels[8],
-        ql_labels=ql_overlay_labels,
-    ), code="""
-        function fmt(v) { return v.toFixed(4); }
-        function coord(x, y) { return "(" + fmt(x) + ", " + fmt(y) + ")"; }
-        const zoom_lbls = [lbl_name, lbl_bl, lbl_br, lbl_tr, lbl_tl,
-                           lbl_die_bl, lbl_die_br, lbl_die_tr, lbl_die_tl];
+        # ---- Tap-to-zoom — full info labels ----
+        tap_cb = CustomJS(args=dict(
+            source=die_source,
+            x_range=p.x_range, y_range=p.y_range,
+            full_x_start=full_x_start, full_x_end=full_x_end,
+            full_y_start=full_y_start, full_y_end=full_y_end,
+            margin=ZOOM_MARGIN,
+            lbl_name=zoom_labels[0],
+            lbl_bl=zoom_labels[1],     lbl_br=zoom_labels[2],
+            lbl_tr=zoom_labels[3],     lbl_tl=zoom_labels[4],
+            lbl_die_bl=zoom_labels[5], lbl_die_br=zoom_labels[6],
+            lbl_die_tr=zoom_labels[7], lbl_die_tl=zoom_labels[8],
+            ql_labels=ql_overlay_labels,
+        ), code="""
+            function fmt(v) { return v.toFixed(4); }
+            function coord(x, y) { return "(" + fmt(x) + ", " + fmt(y) + ")"; }
+            const zoom_lbls = [lbl_name, lbl_bl, lbl_br, lbl_tr, lbl_tl,
+                               lbl_die_bl, lbl_die_br, lbl_die_tr, lbl_die_tl];
+            const inds = source.selected.indices;
+            if (inds.length === 0) {
+                x_range.start = full_x_start; x_range.end = full_x_end;
+                y_range.start = full_y_start; y_range.end = full_y_end;
+                zoom_lbls.forEach(l => l.visible = false);
+                ql_labels.forEach(l => l.visible = true);
+                return;
+            }
+            ql_labels.forEach(l => l.visible = false);
+            const i = inds[0];
+            const d = source.data;
+            const cx = d['die_cx'][i], cy = d['die_cy'][i];
+            x_range.start = d['bbox_xmin'][i] - margin; x_range.end = d['bbox_xmax'][i] + margin;
+            y_range.start = d['bbox_ymax'][i] + margin; y_range.end = d['bbox_ymin'][i] - margin;
+            lbl_name.x = cx; lbl_name.y = cy;
+            lbl_name.text = d['qname'][i] + "  " + d['label'][i] + "-" + d['si_idx'][i] + " " + d['lef'][i];
+            lbl_name.visible = true;
+            const corners = [
+                [lbl_bl,      'ax_bl_x', 'ax_bl_y'],
+                [lbl_br,      'ax_br_x', 'ax_br_y'],
+                [lbl_tr,      'ax_tr_x', 'ax_tr_y'],
+                [lbl_tl,      'ax_tl_x', 'ax_tl_y'],
+                [lbl_die_bl,  'x_bl',    'y_bl'   ],
+                [lbl_die_br,  'x_br',    'y_br'   ],
+                [lbl_die_tr,  'x_tr',    'y_tr'   ],
+                [lbl_die_tl,  'x_tl',    'y_tl'   ],
+            ];
+            for (const [lbl, kx, ky] of corners) {
+                lbl.x = d[kx][i]; lbl.y = d[ky][i];
+                lbl.text = coord(d[kx][i], d[ky][i]);
+                lbl.visible = true;
+            }
+        """)
 
-        const inds = source.selected.indices;
+    else:
+        # ---- Tap-to-zoom — name label only (TB points mode) ----
+        tap_cb = CustomJS(args=dict(
+            source=die_source,
+            x_range=p.x_range, y_range=p.y_range,
+            full_x_start=full_x_start, full_x_end=full_x_end,
+            full_y_start=full_y_start, full_y_end=full_y_end,
+            margin=ZOOM_MARGIN,
+            lbl_name=lbl_name,
+            ql_labels=ql_overlay_labels,
+        ), code="""
+            const inds = source.selected.indices;
+            if (inds.length === 0) {
+                x_range.start = full_x_start; x_range.end = full_x_end;
+                y_range.start = full_y_start; y_range.end = full_y_end;
+                lbl_name.visible = false;
+                ql_labels.forEach(l => l.visible = true);
+                return;
+            }
+            ql_labels.forEach(l => l.visible = false);
+            const i = inds[0];
+            const d = source.data;
+            const cx = d['die_cx'][i], cy = d['die_cy'][i];
+            x_range.start = d['bbox_xmin'][i] - margin; x_range.end = d['bbox_xmax'][i] + margin;
+            y_range.start = d['bbox_ymax'][i] + margin; y_range.end = d['bbox_ymin'][i] - margin;
+            lbl_name.x = cx; lbl_name.y = cy;
+            lbl_name.text = d['qname'][i] + "  " + d['label'][i] + "-" + d['si_idx'][i] + " " + d['lef'][i];
+            lbl_name.visible = true;
+        """)
 
-        if (inds.length === 0) {
-            x_range.start = full_x_start; x_range.end = full_x_end;
-            y_range.start = full_y_start; y_range.end = full_y_end;
-            zoom_lbls.forEach(l => l.visible = false);
-            ql_labels.forEach(l => l.visible = true);
-            return;
-        }
-
-        ql_labels.forEach(l => l.visible = false);
-
-        const i = inds[0];
-        const d = source.data;
-        const cx = d['die_cx'][i], cy = d['die_cy'][i];
-        const xmin = d['bbox_xmin'][i], xmax = d['bbox_xmax'][i];
-        const ymin = d['bbox_ymin'][i], ymax = d['bbox_ymax'][i];
-
-        x_range.start = xmin - margin; x_range.end = xmax + margin;
-        y_range.start = ymax + margin; y_range.end = ymin - margin;
-
-        lbl_name.x = cx; lbl_name.y = cy;
-        lbl_name.text = d['qname'][i] + "  " + d['label'][i] + "-" + d['si_idx'][i] + " " + d['lef'][i];
-        lbl_name.visible = true;
-
-        const corners = [
-            [lbl_bl,      'ax_bl_x', 'ax_bl_y'],
-            [lbl_br,      'ax_br_x', 'ax_br_y'],
-            [lbl_tr,      'ax_tr_x', 'ax_tr_y'],
-            [lbl_tl,      'ax_tl_x', 'ax_tl_y'],
-            [lbl_die_bl,  'x_bl',    'y_bl'   ],
-            [lbl_die_br,  'x_br',    'y_br'   ],
-            [lbl_die_tr,  'x_tr',    'y_tr'   ],
-            [lbl_die_tl,  'x_tl',    'y_tl'   ],
-        ];
-        for (const [lbl, kx, ky] of corners) {
-            lbl.x = d[kx][i]; lbl.y = d[ky][i];
-            lbl.text = coord(d[kx][i], d[ky][i]);
-            lbl.visible = true;
-        }
-    """)
     die_source.selected.js_on_change("indices", tap_cb)
-
+        
     # ---- Axis arrows (captured for toggle) ----
     ARROW_ORIGIN_X = 0
     ARROW_ORIGIN_Y = 0
@@ -666,24 +708,43 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     # ---- CSV points overlay (captured for toggle) ----
     points_renderers = []
     if points:
-        px_list = [r[0] for r in points]
-        py_list = [r[1] for r in points]
-        r_scatter = p.scatter(x=px_list, y=py_list,
+        px_list  = [r[0] for r in points]
+        py_list  = [r[1] for r in points]
+        idx_list = [str(i) for i in range(1, len(points) + 1)]
+
+        hits_by_idx = {entry[1]: entry[2] for entry in TB_hits}
+        hits_list = [
+            ", ".join(sorted(hits_by_idx.get(i, set())))
+            for i in range(1, len(points) + 1)
+        ]
+
+        points_source = ColumnDataSource(dict(
+            x=px_list,
+            y=py_list,
+            idx=idx_list,
+            hits=hits_list,
+        ))
+
+        r_scatter = p.scatter(x="x", y="y", source=points_source,
                               marker="circle", size=8,
                               fill_color="#ffff00", fill_alpha=0.9,
                               line_color="#333300", line_width=1,
                               visible=False)
         points_renderers.append(r_scatter)
-        
-        for idx, (ptx, pty) in enumerate(points, start=1):
-            r_txt = p.text(x=[ptx], y=[pty], 
-                           text=[str(idx)],
-                           text_font_size="8pt", text_font_style="bold",
-                           text_color="#000000",
-                           text_align="left", text_baseline="bottom",
-                           x_offset=5, y_offset=5,
-                           visible=False)
-            points_renderers.append(r_txt)
+
+        r_txt = p.text(x="x", y="y", text="idx", source=points_source,
+                       text_font_size="8pt", text_font_style="bold",
+                       text_color="#000000",
+                       text_align="left", text_baseline="bottom",
+                       x_offset=5, y_offset=5,
+                       visible=False)
+        points_renderers.append(r_txt)
+
+        points_hover = HoverTool(renderers=[r_scatter], tooltips=[
+            ("TB Point", "@idx"),
+            ("Hits",     "@hits"),
+        ])
+        p.add_tools(points_hover)
 
     # ---- Toggle groups ----
     toggle_groups = {
@@ -757,18 +818,37 @@ if __name__ == "__main__":
     cb_u_pts = make_checkbox(tg_u_pts, False)
     cb_y_pts = make_checkbox(tg_y_pts, False)
 
-    output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout")
+    favicon_tag = f'<link rel="icon" type="image/png" href="favicon.png">'
 
-    
+    output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout")
     # Update layout to include the buttons
     layout = row(p_u_pts, column(cb_u_pts, btn_file_U))
     show(layout)
+    # Add favicon to the html file
+    with open('AMS_L0_detector_layout_U.html', 'r+') as file:
+        content = file.readlines()
+        for i, line in enumerate(content):
+            if '</head>' in line:
+                content.insert(i, favicon_tag)
+                break
+        file.seek(0)
+        file.writelines(content)
+        file.truncate()
     
-    output_file("AMS_L0_detector_layout_Y.html", title="AMS-L0 Detector Layout")
-    
+    output_file("AMS_L0_detector_layout_Y.html", title="AMS-L0 Detector Layout")        
     # Update layout to include the buttons
     layout = row(p_y_pts, column(cb_y_pts, btn_file_Y))
     show(layout)
+    # Add favicon to the html file
+    with open('AMS_L0_detector_layout_Y.html', 'r+') as file:
+        content = file.readlines()
+        for i, line in enumerate(content):
+            if '</head>' in line:
+                content.insert(i, favicon_tag)
+                break
+        file.seek(0)
+        file.writelines(content)
+        file.truncate()
     
     p_u, tg_u = make_detector_panel(CFG_U, width=850, height=850)
     p_y, tg_y = make_detector_panel(CFG_Y, width=850, height=850)
@@ -783,7 +863,7 @@ if __name__ == "__main__":
     btn_open_Y = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Y Detector Layout Y")
     
     output_file("AMS_L0_detector_layout.html", title="AMS-L0 Detector Layout")
-    
+
     # Update layout to include the buttons
     layout = row(
         column(p_u, cb_u, btn_open_U, sizing_mode="stretch_width", align="center"),
@@ -791,3 +871,13 @@ if __name__ == "__main__":
         sizing_mode="stretch_width"
     )    
     show(layout)
+    # Add favicon to the html file
+    with open('AMS_L0_detector_layout.html', 'r+') as file:
+        content = file.readlines()
+        for i, line in enumerate(content):
+            if '</head>' in line:
+                content.insert(i, favicon_tag)
+                break
+        file.seek(0)
+        file.writelines(content)
+        file.truncate()
