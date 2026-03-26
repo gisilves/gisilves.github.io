@@ -7,7 +7,7 @@ import numpy as np
 from bokeh.plotting import figure, show
 from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button
 from bokeh.layouts import row, column
-from bokeh.io import output_file save
+from bokeh.io import output_file, save
 
     
 # ---------------------------------------------------------------------------
