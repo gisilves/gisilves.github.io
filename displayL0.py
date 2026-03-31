@@ -298,6 +298,24 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
 
     die_source = ColumnDataSource(die_data)
     
+    # Save csv with nominal positions of each silicon die
+    with open(f"{cfg['TITLE'][7]}_nominal_positions.csv", "w") as f:
+            print(f"Writing nominal positions to {f.name}")
+            f.write("Layer,qname,Si detector,LEF,Die BL x,Die BL y,Die BR x,Die BR y,Die TR x,Die TR y,Die TL x,Die TL y,Active BL x,Active BL y,Active BR x,Active BR y,Active TR x,Active TR y,Active TL x,Active TL y\n")
+            for i in range(len(die_data["qname"])):
+                si_det = f"{die_data['label'][i]}-{die_data['si_idx'][i]}"
+                f.write(
+                    f"{cfg['TITLE'][7]},{die_data['qname'][i]},{si_det},{die_data['lef'][i]},"
+                    f"{die_data['x_bl'][i]},{die_data['y_bl'][i]},"
+                    f"{die_data['x_br'][i]},{die_data['y_br'][i]},"
+                    f"{die_data['x_tr'][i]},{die_data['y_tr'][i]},"
+                    f"{die_data['x_tl'][i]},{die_data['y_tl'][i]},"
+                    f"{die_data['ax_bl_x'][i]},{die_data['ax_bl_y'][i]},"
+                    f"{die_data['ax_br_x'][i]},{die_data['ax_br_y'][i]},"
+                    f"{die_data['ax_tr_x'][i]},{die_data['ax_tr_y'][i]},"
+                    f"{die_data['ax_tl_x'][i]},{die_data['ax_tl_y'][i]}\n"
+                )
+                
     TB_hits = []
     
     if points_file is not None:
@@ -867,18 +885,22 @@ if __name__ == "__main__":
     cb_u = make_checkbox(tg_u)
     cb_y = make_checkbox(tg_y)
     
-    btn_open_U = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 U Detector Layout U")
-    btn_open_Y = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Y Detector Layout Y")
+    
+    
+    btn_open_U = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
+    btn_open_positions_U = make_file_download_button("U_nominal_positions.csv", "Nominal positions U")
+    btn_open_Y = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
+    btn_open_positions_Y = make_file_download_button("Y_nominal_positions.csv", "Nominal positions Y")
     
     output_file("AMS_L0_detector_layout.html", title="AMS-L0 Detector Layout")
 
     # Update layout to include the buttons
     layout = row(
-        column(p_u, cb_u, btn_open_U, sizing_mode="stretch_width", align="center"),
-        column(p_y, cb_y, btn_open_Y, sizing_mode="stretch_width", align="center"),
-        sizing_mode="stretch_width"
+        column(p_u, cb_u, row(btn_open_U, btn_open_positions_U), align="center"),
+        column(p_y, cb_y, row(btn_open_Y, btn_open_positions_Y), align="center"),
     )    
     save(layout)
+    
     # Add favicon to the html file
     with open('AMS_L0_detector_layout.html', 'r+') as file:
         content = file.readlines()
