@@ -4,8 +4,8 @@ Script generates html file detector_layout.html
 """
 
 import numpy as np
-from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button
+from bokeh.plotting import figure
+from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button, Div
 from bokeh.layouts import row, column
 from bokeh.io import output_file, save
 
@@ -79,9 +79,6 @@ COLOR_EDGE        = "#222244"
 COLOR_ACTIVE_EDGE = "#441144"
 COLOR_CROSS       = "#cc2222"
 
-
-
-
 ### Import from csv list of points ###
 
 def import_csv(filename):
@@ -152,7 +149,7 @@ def get_tiles_in_radius(p_x, p_y, radius, die_source):
 # Factory
 # ---------------------------------------------------------------------------
 
-def make_detector_panel(cfg, width=850, height=850, points_file=None):
+def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_points_file=None):
 
     N_LADDERS            = cfg["N_LADDERS"]
     CELL_WIDTH           = cfg["CELL_WIDTH"]
@@ -241,12 +238,16 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     
     # If robotic arms points file is provided, use it to define measurement points at TB
     points = []
+    cupola_points = []
     if points_file is not None:
         points = import_csv(points_file)
+        if cupola_points_file is not None:
+            cupola_points = import_csv(cupola_points_file)
                     
     # Correct for different robotic arms coordinate system
     if "AMS-L0 U Detector Layout" in cfg["TITLE"]:
         points = [(- p[0], p[1]) for p in points]
+        cupola_points = [(- p[0], p[1]) for p in cupola_points]
     
     # Note: combination of coordinate system correction and mirroring 
     # (Y layer seen from above AMS looking down)
@@ -317,6 +318,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
                 )
                 
     TB_hits = []
+    TB_hits_cupola = []
     
     if points_file is not None:
         # Get hits in 10mm radius of each TB point and save them to a new csv file
@@ -326,8 +328,22 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
             f.write("Layer,TB point,Hits\n")
             for idx, (ptx, pty) in enumerate(points, start=1):
                 hits = get_tiles_in_radius(ptx, pty, 10, die_source)
+                if not hits:
+                    hits = "NO LEF"
                 f.write(f"{cfg['TITLE'][7]},{idx},{hits}\n")
                 TB_hits.append([cfg['TITLE'][7], idx, hits])
+        if cupola_points_file is not None:
+            # Get hits in 10mm radius of each cupola point and save them to a new csv file
+            hits_file = f"{cfg['TITLE'][7]}_Cupola_TB_hits.csv"
+            print(f"Writing hits to {hits_file}")
+            with open(hits_file, "w") as f:
+                f.write("Layer,TB point,Hits\n")
+                for idx, (ptx, pty) in enumerate(cupola_points, start=1):
+                    hits = get_tiles_in_radius(ptx, pty, 10, die_source)
+                    if not hits:
+                        hits = "NO LEF"
+                    f.write(f"{cfg['TITLE'][7]},{idx},{hits}\n")
+                    TB_hits_cupola.append([cfg['TITLE'][7], idx, hits])
             
     # ---- Active area ----
     active_data = dict(xs=[], ys=[])
@@ -732,7 +748,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
     
     
     # ---- CSV points overlay (captured for toggle) ----
-    points_renderers = []
+    points_renderers = []    
     if points:
         px_list  = [r[0] for r in points]
         py_list  = [r[1] for r in points]
@@ -775,7 +791,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
                              x_offset=5, y_offset=5,
                              visible=False)
         points_renderers.append(r_txt_large)
-
+        
         # Zoom-driven label swap
         zoom_cb = CustomJS(args=dict(
             x_range=p.x_range,
@@ -785,8 +801,9 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
         ), code="""
             const current_width = Math.abs(x_range.end - x_range.start);
             const zoomed_in = current_width < full_width * 0.3;
-            // Only swap if the labels are currently visible (i.e. TB Points toggled on)
-            if (small.visible || large.visible) {
+            // Only swap if the labels are currently visible (i.e. TB Points or Cupola TB Points toggled on)
+            if (small.visible || large.visible)
+            {
                 small.visible = !zoomed_in;
                 large.visible = zoomed_in;
             }
@@ -798,19 +815,88 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
             ("Hits",     "@hits"),
         ])
         p.add_tools(points_hover)
+        
+    # ---- Cupola TB Points overlay (captured for toggle) ----
+    cupola_points_renderers = []
+    
+    if cupola_points:
+        cupola_px_list  = [r[0] for r in cupola_points]
+        cupola_py_list  = [r[1] for r in cupola_points]
+        cupola_idx_list = [str(i) for i in range(1, len(cupola_points) + 1)]
 
+        cupola_hits_by_idx = {entry[1]: entry[2] for entry in TB_hits_cupola}
+        cupola_hits_list = [
+            ", ".join(sorted(cupola_hits_by_idx.get(i, set())))
+            for i in range(1, len(cupola_points) + 1)
+        ]
+
+        cupola_points_source = ColumnDataSource(dict(
+            x=cupola_px_list,
+            y=cupola_py_list,
+            idx=cupola_idx_list,
+            hits=cupola_hits_list,
+        ))
+
+        r_cupola_scatter = p.scatter(x="x", y="y", source=cupola_points_source,
+                              marker="circle", size=8,
+                              fill_color="#ff5500", fill_alpha=0.9,
+                              line_color="#333300", line_width=1,
+                              visible=False)
+        cupola_points_renderers.append(r_cupola_scatter)
+
+        # Small labels — visible at full zoom
+        r_txt_cupola_small = p.text(x="x", y="y", text="idx", source=cupola_points_source,
+                             text_font_size="8pt", text_font_style="bold",
+                             text_color="#000000",
+                             text_align="left", text_baseline="bottom",
+                             x_offset=5, y_offset=5,
+                             visible=False)
+        cupola_points_renderers.append(r_txt_cupola_small)
+
+        # Large labels — visible when zoomed in
+        r_txt_cupola_large = p.text(x="x", y="y", text="idx", source=cupola_points_source,
+                             text_font_size="18pt", text_font_style="bold",
+                             text_color="#000000",
+                             text_align="left", text_baseline="bottom",
+                             x_offset=5, y_offset=5,
+                             visible=False)
+        cupola_points_renderers.append(r_txt_cupola_large)
+        
+        # Zoom-driven label swap
+        zoom_cb = CustomJS(args=dict(
+            x_range=p.x_range,
+            cupola_small=r_txt_cupola_small,
+            cupola_large=r_txt_cupola_large,
+            full_width=full_x_end - full_x_start,
+        ), code="""
+            const current_width = Math.abs(x_range.end - x_range.start);
+            const zoomed_in = current_width < full_width * 0.3;
+            // Only swap if the labels are currently visible (i.e. TB Points or Cupola TB Points toggled on)
+            if (cupola_small.visible || cupola_large.visible)
+            {
+                cupola_small.visible = !zoomed_in;
+                cupola_large.visible = zoomed_in;
+            }
+        """)
+        p.x_range.js_on_change("start", zoom_cb)
+
+        cupola_points_hover = HoverTool(renderers=[r_cupola_scatter], tooltips=[
+            ("Cupola TB Point", "@idx"),
+            ("Hits",     "@hits"),
+        ])
+        p.add_tools(cupola_points_hover)
+        
     # ---- Toggle groups ----
     toggle_groups = {
-            "QL labels":       ql_overlay_labels,
-            "LEF boxes":       [lb_renderer] + lb_text_renderers,
-            "0 strip markers": strip_renderers,
-            "Axis arrows":     axis_renderers,
-            "TB Points":       points_renderers,
+            "QL labels":              ql_overlay_labels,
+            "LEF boxes":              [lb_renderer] + lb_text_renderers,
+            "0 strip markers":        strip_renderers,
+            "Axis arrows":            axis_renderers,
+            "TB Points":              points_renderers,
+            "Cupola TB Points":       cupola_points_renderers,
         }
 
     return p, toggle_groups
-
-
 
 def make_checkbox(toggle_groups, _is_inline=True):
     labels = list(toggle_groups.keys())
@@ -818,35 +904,45 @@ def make_checkbox(toggle_groups, _is_inline=True):
 
     cb = CheckboxGroup(
         labels=labels,
-        active=[i for i in range(len(labels)) if labels[i] != "TB Points"],
+        active=[i for i in range(len(labels)) if labels[i] not in ("TB Points", "Cupola TB Points")],
         width=750,
         inline=_is_inline,
         align='center',
     )
 
-    # Find the TB Points group index and extract its renderers
-    tb_idx = labels.index("TB Points") if "TB Points" in labels else -1
-    tb_renderers = toggle_groups.get("TB Points", [])
-    # tb_renderers layout: [r_scatter, r_txt_small, r_txt_large]
-    # if no points, tb_renderers is empty — guard against that in JS with length check
-    scatter   = tb_renderers[0] if len(tb_renderers) > 0 else None
-    txt_small = tb_renderers[1] if len(tb_renderers) > 1 else None
-    txt_large = tb_renderers[2] if len(tb_renderers) > 2 else None
+    # TB Points special handling
+    tb_idx      = labels.index("TB Points") if "TB Points" in labels else -1
+    tb_rend     = toggle_groups.get("TB Points", [])
+    tb_scatter  = tb_rend[0] if len(tb_rend) > 0 else None
+    tb_small    = tb_rend[1] if len(tb_rend) > 1 else None
+    tb_large    = tb_rend[2] if len(tb_rend) > 2 else None
+
+    # Cupola TB Points special handling
+    cup_idx     = labels.index("Cupola TB Points") if "Cupola TB Points" in labels else -1
+    cup_rend    = toggle_groups.get("Cupola TB Points", [])
+    cup_scatter = cup_rend[0] if len(cup_rend) > 0 else None
+    cup_small   = cup_rend[1] if len(cup_rend) > 1 else None
+    cup_large   = cup_rend[2] if len(cup_rend) > 2 else None
 
     cb_callback = CustomJS(
         args=dict(
             cb=cb, groups=all_renderers,
             tb_idx=tb_idx,
-            scatter=scatter, txt_small=txt_small, txt_large=txt_large,
+            tb_scatter=tb_scatter, tb_small=tb_small, tb_large=tb_large,
+            cup_idx=cup_idx,
+            cup_scatter=cup_scatter, cup_small=cup_small, cup_large=cup_large,
         ),
         code="""
         for (let g = 0; g < groups.length; g++) {
             const visible = cb.active.includes(g);
             if (g === tb_idx) {
-                // Handle TB Points specially
-                if (scatter)   scatter.visible   = visible;
-                if (txt_small) txt_small.visible = visible;   // small on, large off
-                if (txt_large) txt_large.visible = false;     // always off on toggle
+                if (tb_scatter) tb_scatter.visible = visible;
+                if (tb_small)   tb_small.visible   = visible;  // small on
+                if (tb_large)   tb_large.visible   = false;    // large always off on toggle
+            } else if (g === cup_idx) {
+                if (cup_scatter) cup_scatter.visible = visible;
+                if (cup_small)   cup_small.visible   = visible;  // small on
+                if (cup_large)   cup_large.visible   = false;    // large always off on toggle
             } else {
                 for (const r of groups[g]) {
                     r.visible = visible;
@@ -858,7 +954,7 @@ def make_checkbox(toggle_groups, _is_inline=True):
     return cb
 
 def make_file_download_button(filename, title):
-    btn = Button(label=f"Download {title}", button_type="warning", width=200)
+    btn = Button(label=f"Download {title}", button_type="warning", width=400)
     
     # JavaScript to trigger a browser download for a local file
     callback = CustomJS(args=dict(file=filename), code="""
@@ -874,7 +970,7 @@ def make_file_download_button(filename, title):
     return btn
 
 def make_open_page_button(link, title):
-    btn = Button(label = f"Open {title}", button_type = "warning", width = 200)
+    btn = Button(label = f"Open {title}", button_type = "warning", width = 400)
 
     cb = CustomJS(args=dict(file=link), code='''
               window.open(file, '_blank');
@@ -884,20 +980,23 @@ def make_open_page_button(link, title):
 
 if __name__ == "__main__":
     
-    p_u_pts, tg_u_pts = make_detector_panel(CFG_U, width=850, height=850, points_file = "Targets_Rear_XYAdjusted.csv")
-    p_y_pts, tg_y_pts = make_detector_panel(CFG_Y, width=850, height=850, points_file = "Targets_Front_XYAdjusted.csv")
+    p_u_pts, tg_u_pts = make_detector_panel(CFG_U, width=850, height=850, points_file = "Targets_Rear_XYAdjusted.csv", cupola_points_file = "Targets_Rear_Cupola_XYAdjusted.csv")
+    p_y_pts, tg_y_pts = make_detector_panel(CFG_Y, width=850, height=850, points_file = "Targets_Front_XYAdjusted.csv", cupola_points_file = "Targets_Front_Cupola_XYAdjusted.csv")
     
     btn_file_U = make_file_download_button("U_TB_hits.csv", "U hits list with LEF")
+    btn_file_cupola_U = make_file_download_button("U_Cupola_TB_hits.csv", "U Cupola hits list with LEF")
     btn_file_Y = make_file_download_button("Y_TB_hits.csv", "Y hits list with LEF")
+    btn_file_cupola_Y = make_file_download_button("Y_Cupola_TB_hits.csv", "Y Cupola hits list with LEF")
 
     cb_u_pts = make_checkbox(tg_u_pts, False)
     cb_y_pts = make_checkbox(tg_y_pts, False)
 
     favicon_tag = f'<link rel="icon" type="image/png" href="favicon.png">'
 
-    output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout")
+    output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout U")
     # Update layout to include the buttons
-    layout = row(p_u_pts, column(cb_u_pts, btn_file_U))
+    text_div = Div(text="<b>N.B. Cupola TB Points are not yet implemented, fake points are used instead.</b>", width=400)
+    layout = row(p_u_pts, column(cb_u_pts, btn_file_U, btn_file_cupola_U, text_div))
     save(layout)
     # Add favicon to the html file
     with open('AMS_L0_detector_layout_U.html', 'r+') as file:
@@ -910,9 +1009,9 @@ if __name__ == "__main__":
         file.writelines(content)
         file.truncate()
     
-    output_file("AMS_L0_detector_layout_Y.html", title="AMS-L0 Detector Layout")        
+    output_file("AMS_L0_detector_layout_Y.html", title="AMS-L0 Detector Layout Y")        
     # Update layout to include the buttons
-    layout = row(p_y_pts, column(cb_y_pts, btn_file_Y))
+    layout = row(p_y_pts, column(cb_y_pts, btn_file_Y, btn_file_cupola_Y, text_div))
     save(layout)
     # Add favicon to the html file
     with open('AMS_L0_detector_layout_Y.html', 'r+') as file:
@@ -928,13 +1027,13 @@ if __name__ == "__main__":
     p_u, tg_u = make_detector_panel(CFG_U, width=850, height=850)
     p_y, tg_y = make_detector_panel(CFG_Y, width=850, height=850)
     
-    # Remove TB Points toggle group from the checkboxes
+    # Remove TB Points and Cupola TB Points toggle group from the checkboxes
     tg_u.pop("TB Points")
+    tg_u.pop("Cupola TB Points")
     tg_y.pop("TB Points")
+    tg_y.pop("Cupola TB Points")
     cb_u = make_checkbox(tg_u)
     cb_y = make_checkbox(tg_y)
-    
-    
     
     btn_open_U = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
     btn_open_positions_U = make_file_download_button("U_nominal_positions.csv", "Nominal positions U")
