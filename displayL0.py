@@ -758,13 +758,40 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
                               visible=False)
         points_renderers.append(r_scatter)
 
-        r_txt = p.text(x="x", y="y", text="idx", source=points_source,
-                       text_font_size="8pt", text_font_style="bold",
-                       text_color="#000000",
-                       text_align="left", text_baseline="bottom",
-                       x_offset=5, y_offset=5,
-                       visible=False)
-        points_renderers.append(r_txt)
+        # Small labels — visible at full zoom
+        r_txt_small = p.text(x="x", y="y", text="idx", source=points_source,
+                             text_font_size="8pt", text_font_style="bold",
+                             text_color="#000000",
+                             text_align="left", text_baseline="bottom",
+                             x_offset=5, y_offset=5,
+                             visible=False)
+        points_renderers.append(r_txt_small)
+
+        # Large labels — visible when zoomed in
+        r_txt_large = p.text(x="x", y="y", text="idx", source=points_source,
+                             text_font_size="18pt", text_font_style="bold",
+                             text_color="#000000",
+                             text_align="left", text_baseline="bottom",
+                             x_offset=5, y_offset=5,
+                             visible=False)
+        points_renderers.append(r_txt_large)
+
+        # Zoom-driven label swap
+        zoom_cb = CustomJS(args=dict(
+            x_range=p.x_range,
+            small=r_txt_small,
+            large=r_txt_large,
+            full_width=full_x_end - full_x_start,
+        ), code="""
+            const current_width = Math.abs(x_range.end - x_range.start);
+            const zoomed_in = current_width < full_width * 0.3;
+            // Only swap if the labels are currently visible (i.e. TB Points toggled on)
+            if (small.visible || large.visible) {
+                small.visible = !zoomed_in;
+                large.visible = zoomed_in;
+            }
+        """)
+        p.x_range.js_on_change("start", zoom_cb)
 
         points_hover = HoverTool(renderers=[r_scatter], tooltips=[
             ("TB Point", "@idx"),
@@ -787,21 +814,43 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None):
 
 def make_checkbox(toggle_groups, _is_inline=True):
     labels = list(toggle_groups.keys())
-    all_renderers = list(toggle_groups.values())  # list of lists
+    all_renderers = list(toggle_groups.values())
 
     cb = CheckboxGroup(
         labels=labels,
-        active=[i for i in range(len(labels)) if labels[i] != "TB Points"],  # Points off by default
+        active=[i for i in range(len(labels)) if labels[i] != "TB Points"],
         width=750,
         inline=_is_inline,
         align='center',
     )
 
-    cb_callback = CustomJS(args=dict(cb=cb, groups=all_renderers), code="""
+    # Find the TB Points group index and extract its renderers
+    tb_idx = labels.index("TB Points") if "TB Points" in labels else -1
+    tb_renderers = toggle_groups.get("TB Points", [])
+    # tb_renderers layout: [r_scatter, r_txt_small, r_txt_large]
+    # if no points, tb_renderers is empty — guard against that in JS with length check
+    scatter   = tb_renderers[0] if len(tb_renderers) > 0 else None
+    txt_small = tb_renderers[1] if len(tb_renderers) > 1 else None
+    txt_large = tb_renderers[2] if len(tb_renderers) > 2 else None
+
+    cb_callback = CustomJS(
+        args=dict(
+            cb=cb, groups=all_renderers,
+            tb_idx=tb_idx,
+            scatter=scatter, txt_small=txt_small, txt_large=txt_large,
+        ),
+        code="""
         for (let g = 0; g < groups.length; g++) {
             const visible = cb.active.includes(g);
-            for (const r of groups[g]) {
-                r.visible = visible;
+            if (g === tb_idx) {
+                // Handle TB Points specially
+                if (scatter)   scatter.visible   = visible;
+                if (txt_small) txt_small.visible = visible;   // small on, large off
+                if (txt_large) txt_large.visible = false;     // always off on toggle
+            } else {
+                for (const r of groups[g]) {
+                    r.visible = visible;
+                }
             }
         }
     """)
