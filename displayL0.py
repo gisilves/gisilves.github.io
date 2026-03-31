@@ -995,8 +995,8 @@ if __name__ == "__main__":
 
     output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout U")
     # Update layout to include the buttons
-    text_div = Div(text="<b>N.B. Cupola TB Points are not yet implemented, fake points are used instead.</b>", width=400)
-    layout = row(p_u_pts, column(cb_u_pts, btn_file_U, btn_file_cupola_U, text_div))
+    text_div_U = Div(text="<b>N.B. Cupola TB Points are not yet implemented for U, fake points are used instead.</b>", width=400)
+    layout = row(p_u_pts, column(cb_u_pts, btn_file_U, btn_file_cupola_U, text_div_U))
     save(layout)
     # Add favicon to the html file
     with open('AMS_L0_detector_layout_U.html', 'r+') as file:
@@ -1011,7 +1011,8 @@ if __name__ == "__main__":
     
     output_file("AMS_L0_detector_layout_Y.html", title="AMS-L0 Detector Layout Y")        
     # Update layout to include the buttons
-    layout = row(p_y_pts, column(cb_y_pts, btn_file_Y, btn_file_cupola_Y, text_div))
+    text_div_Y = Div(text="<b>N.B. Cupola TB Points are not yet implemented for Y, fake points are used instead.</b>", width=400)
+    layout = row(p_y_pts, column(cb_y_pts, btn_file_Y, btn_file_cupola_Y, text_div_Y))
     save(layout)
     # Add favicon to the html file
     with open('AMS_L0_detector_layout_Y.html', 'r+') as file:
