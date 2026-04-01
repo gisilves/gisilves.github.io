@@ -250,6 +250,10 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
     if "AMS-L0 U Detector Layout" in cfg["TITLE"]:
         points        = [(-p[0],  p[1]) for p in points]
         cupola_points = [(-p[0],  p[1]) for p in cupola_points]
+        
+    # Note: for Y layer, combination of coordinate system correction and mirroring 
+    # (Y layer seen from above AMS looking down)
+    # gives points with the same coordinates as the ones in the csv file
 
     for (qname, fx, fy) in QL_LIST:
         for (col, row_idx, xl, yl) in q1_cells_local:
@@ -895,13 +899,13 @@ if __name__ == "__main__":
     # ---- U and Y panels with TB points ----
     p_u_pts, tg_u_pts, cup_idx_u, cup_hits_u, tb_idx_u, tb_hits_u = make_detector_panel(
         CFG_U, width=850, height=850,
-        points_file="Targets_Rear_XYAdjusted.csv",
-        cupola_points_file="Targets_Rear_Cupola_XYAdjusted.csv")
+        points_file="Targets_U_XYAdjusted.csv",
+        cupola_points_file="Targets_U_Cupola_XYAdjusted.csv")
 
     p_y_pts, tg_y_pts, cup_idx_y, cup_hits_y, tb_idx_y, tb_hits_y = make_detector_panel(
         CFG_Y, width=850, height=850,
-        points_file="Targets_Front_XYAdjusted.csv",
-        cupola_points_file="Targets_Front_Cupola_XYAdjusted.csv")
+        points_file="Targets_Y_XYAdjusted.csv",
+        cupola_points_file="Targets_Y_Cupola_XYAdjusted.csv")
 
     # Dropdowns
     dropdown_tb_u,  hits_div_tb_u  = make_points_dropdown(tb_idx_u,  tb_hits_u,  label="TB Point")
