@@ -930,14 +930,12 @@ if __name__ == "__main__":
         children.append(Div(text=f"<b>{note}</b>", width=400))
         return column(*children)
 
-    note = "N.B. Cupola TB Points are not yet implemented, fake points are used instead."
-
     sidebar_u = build_sidebar(cb_u_pts, btn_file_U, btn_file_cupola_U,
                                dropdown_tb_u, hits_div_tb_u,
-                               dropdown_cup_u, hits_div_cup_u, note)
+                               dropdown_cup_u, hits_div_cup_u)
     sidebar_y = build_sidebar(cb_y_pts, btn_file_Y, btn_file_cupola_Y,
                                dropdown_tb_y, hits_div_tb_y,
-                               dropdown_cup_y, hits_div_cup_y, note)
+                               dropdown_cup_y, hits_div_cup_y)
 
     output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout U")
     save(row(p_u_pts, sidebar_u))
