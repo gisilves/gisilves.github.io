@@ -921,13 +921,12 @@ if __name__ == "__main__":
     cb_u_pts = make_checkbox(tg_u_pts, False)
     cb_y_pts = make_checkbox(tg_y_pts, False)
 
-    def build_sidebar(cb, btn1, btn2, dd_tb, div_tb, dd_cup, div_cup, note):
+    def build_sidebar(cb, btn1, btn2, dd_tb, div_tb, dd_cup, div_cup):
         children = [cb, btn1, btn2, Spacer(width=400, height=10)]
         if dd_tb:
             children += [dd_tb, div_tb]
         if dd_cup:
             children += [Spacer(width=400, height=10), dd_cup, div_cup]
-        children.append(Div(text=f"<b>{note}</b>", width=400))
         return column(*children)
 
     sidebar_u = build_sidebar(cb_u_pts, btn_file_U, btn_file_cupola_U,
