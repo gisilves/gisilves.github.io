@@ -151,7 +151,7 @@ def get_tiles_in_radius(p_x, p_y, radius, die_source):
 # Factory
 # ---------------------------------------------------------------------------
 
-def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_points_file=None):
+def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, phase2_points_file=None, phase0_points_file=None):
 
     N_LADDERS            = cfg["N_LADDERS"]
     CELL_WIDTH           = cfg["CELL_WIDTH"]
@@ -239,17 +239,21 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
     ]}
 
     # Load points files
-    points = []
-    cupola_points = []
-    if points_file is not None:
-        points = import_csv(points_file)
-        if cupola_points_file is not None:
-            cupola_points = import_csv(cupola_points_file)
+    phase1_points = []
+    phase2_points = []
+    phase0_points = []
+    if phase1_points_file is not None:
+        phase1_points = import_csv(phase1_points_file)
+        if phase2_points_file is not None:
+            phase2_points = import_csv(phase2_points_file)
+            if phase0_points_file is not None:
+                phase0_points = import_csv(phase0_points_file)
 
     # Correct for different robotic arms coordinate system
     if "AMS-L0 U Detector Layout" in cfg["TITLE"]:
-        points        = [(-p[0],  p[1]) for p in points]
-        cupola_points = [(-p[0],  p[1]) for p in cupola_points]
+        phase1_points        = [(-p[0],  p[1], p[2]) for p in phase1_points]
+        phase2_points = [(-p[0],  p[1], p[2]) for p in phase2_points]
+        phase0_points = [(-p[0],  p[1], p[2]) for p in phase0_points]
         
     # Note: for Y layer, combination of coordinate system correction and mirroring 
     # (Y layer seen from above AMS looking down)
@@ -323,30 +327,42 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
             )
 
     # ---- Compute TB hits ----
-    TB_hits        = []   # list of [layer, idx, hits_set_or_str]
-    TB_hits_cupola = []
+    TB_hits_phase1 = []   # list of [layer, idx, hits_set_or_str, nevts]
+    TB_hits_phase2 = []
+    TB_hits_phase0 = []
 
-    if points_file is not None:
-        hits_file = f"{cfg['TITLE'][7]}_TB_hits.csv"
+    if phase1_points_file is not None:
+        hits_file = f"{cfg['TITLE'][7]}_Phase1_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
-            f.write("Layer,TB point,Hits\n")
-            for idx, (ptx, pty) in enumerate(points, start=1):
+            f.write("Layer,Phase 1 point,Hits,NEVTs\n")
+            for idx, (ptx, pty, nevts) in enumerate(phase1_points, start=1):
                 hits = get_tiles_in_radius(ptx, pty, 10, die_source)
                 hits_str = _safe_hits_str(hits)
                 f.write(f"{cfg['TITLE'][7]},{idx},{hits_str}\n")
-                TB_hits.append([cfg['TITLE'][7], idx, hits])   # store set
+                TB_hits_phase1.append([cfg['TITLE'][7], idx, hits, nevts])
 
-        if cupola_points_file is not None:
-            hits_file = f"{cfg['TITLE'][7]}_Cupola_TB_hits.csv"
+        if phase2_points_file is not None:
+            hits_file = f"{cfg['TITLE'][7]}_Phase2_hits.csv"
             print(f"Writing hits to {hits_file}")
             with open(hits_file, "w") as f:
-                f.write("Layer,TB point,Hits\n")
-                for idx, (ptx, pty) in enumerate(cupola_points, start=1):
+                f.write("Layer,Phase 2 point,Hits,NEVTs\n")
+                for idx, (ptx, pty, nevts) in enumerate(phase2_points, start=1):
                     hits = get_tiles_in_radius(ptx, pty, 10, die_source)
                     hits_str = _safe_hits_str(hits)
                     f.write(f"{cfg['TITLE'][7]},{idx},{hits_str}\n")
-                    TB_hits_cupola.append([cfg['TITLE'][7], idx, hits])   # store set
+                    TB_hits_phase2.append([cfg['TITLE'][7], idx, hits, nevts])
+                    
+            if phase0_points_file is not None:
+                hits_file = f"{cfg['TITLE'][7]}_Phase0_hits.csv"
+                print(f"Writing hits to {hits_file}")
+                with open(hits_file, "w") as f:
+                    f.write("Layer,Phase 0 point,Hits,NEVTs\n")
+                    for idx, (ptx, pty, nevts) in enumerate(phase0_points, start=1):
+                        hits = get_tiles_in_radius(ptx, pty, 10, die_source)
+                        hits_str = _safe_hits_str(hits)
+                        f.write(f"{cfg['TITLE'][7]},{idx},{hits_str}\n")
+                        TB_hits_phase0.append([cfg['TITLE'][7], idx, hits, nevts])
 
     # ---- Active area ----
     active_data = dict(xs=[], ys=[])
@@ -541,7 +557,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
     )
     p.add_layout(lbl_name)
 
-    if points_file is None:
+    if phase1_points_file is None:
         # ---- Si die HoverTool ----
         p.add_tools(HoverTool(renderers=[die_glyph], tooltips=[
             ("Quadrant",    "@qname"),
@@ -698,16 +714,17 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
 
     # ---- Helper: build a points overlay ----
     def _make_points_overlay(pts_list, hits_list_raw, fill_color, hover_label):
-        """Returns (renderers_list, idx_list, hits_str_list)."""
+        """Returns (renderers_list, idx_list, hits_str_list, nevts_list)."""
         if not pts_list:
-            return [], [], []
+            return [], [], [], []
 
-        px_list  = [r[0] for r in pts_list]
-        py_list  = [r[1] for r in pts_list]
-        idx_list = [str(i) for i in range(1, len(pts_list) + 1)]
+        px_list    = [r[0] for r in pts_list]
+        py_list    = [r[1] for r in pts_list]
+        idx_list   = [str(i) for i in range(1, len(pts_list) + 1)]
+        nevts_list = [str(int(r[2])) for r in pts_list]
 
-        # hits_list_raw: list of [layer, idx, set_or_str]
-        hits_by_idx = {entry[1]: entry[2] for entry in hits_list_raw}
+        # hits_list_raw: list of [layer, idx, set_or_str, nevts]
+        hits_by_idx  = {entry[1]: entry[2] for entry in hits_list_raw}
         hits_str_list = [
             _safe_hits_str(hits_by_idx.get(i, set()))
             for i in range(1, len(pts_list) + 1)
@@ -717,6 +734,7 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
             x=px_list, y=py_list,
             idx=idx_list,
             hits=hits_str_list,
+            nevts=nevts_list,
         ))
 
         r_scatter = p.scatter(x="x", y="y", source=src,
@@ -750,17 +768,22 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
         p.add_tools(HoverTool(renderers=[r_scatter], tooltips=[
             (hover_label, "@idx"),
             ("Hits",      "@hits"),
+            ("NEVTs",     "@nevts"),
         ]))
 
-        return [r_scatter, r_small, r_large], idx_list, hits_str_list
+        return [r_scatter, r_small, r_large], idx_list, hits_str_list, nevts_list
 
-    # ---- TB Points overlay ----
-    points_renderers, tb_idx_list, tb_hits_str_list = \
-        _make_points_overlay(points, TB_hits, "#ffff00", "TB Point")
+    # ---- Phase 1 Points overlay ----
+    phase1_points_renderers, phase1_idx_list, phase1_hits_str_list, phase1_nevts_list = \
+        _make_points_overlay(phase1_points, TB_hits_phase1, "#ffff00", "Phase 1 Point")
 
-    # ---- Cupola TB Points overlay ----
-    cupola_points_renderers, cupola_idx_list, cupola_hits_str_list = \
-        _make_points_overlay(cupola_points, TB_hits_cupola, "#ff5500", "Cupola TB Point")
+    # ---- Phase 2 Points overlay ----
+    phase2_points_renderers, phase2_idx_list, phase2_hits_str_list, phase2_nevts_list = \
+        _make_points_overlay(phase2_points, TB_hits_phase2, "#ff5500", "Phase 2 Point")
+        
+    # ---- Phase 0 Points overlay ----
+    phase0_points_renderers, phase0_idx_list, phase0_hits_str_list, phase0_nevts_list = \
+        _make_points_overlay(phase0_points, TB_hits_phase0, "#0004ff", "Phase 0 Point")
 
     # ---- Toggle groups ----
     toggle_groups = {
@@ -768,24 +791,31 @@ def make_detector_panel(cfg, width=850, height=850, points_file=None, cupola_poi
         "LEF boxes":        [lb_renderer] + lb_text_renderers,
         "0 strip markers":  strip_renderers,
         "Axis arrows":      axis_renderers,
-        "TB Points":        points_renderers,
-        "Cupola TB Points": cupola_points_renderers,
+        "Phase 0 Points": phase0_points_renderers,
+        "Phase 1 Points": phase1_points_renderers,
+        "Phase 2 Points": phase2_points_renderers,
     }
 
     return (p, toggle_groups,
-            cupola_idx_list, cupola_hits_str_list,
-            tb_idx_list,     tb_hits_str_list)
+            phase2_idx_list, phase2_hits_str_list,
+            phase1_idx_list, phase1_hits_str_list,
+            phase1_nevts_list,   phase2_nevts_list,
+            phase0_idx_list, phase0_hits_str_list,
+            phase0_nevts_list)
 
 
 # ---------------------------------------------------------------------------
 # Widget factories
 # ---------------------------------------------------------------------------
 
-def make_points_dropdown(idx_list, hits_list, width=400, title="Select TB Point", label="TB Point"):
+def make_points_dropdown(idx_list, hits_list, nevts_list, width=400, title="Select Phase 1 Point", label="Phase 1 Point"):
     if not idx_list:
         return None, None
 
-    options = [("", title)] + [(idx, f"{label} {idx}") for idx in idx_list]
+    options = [("", title)] + [
+        (idx, f"{label} {idx}")
+        for idx, nevts in zip(idx_list, nevts_list)
+    ]
 
     select = Select(value="", options=options, width=width)
 
@@ -797,13 +827,18 @@ def make_points_dropdown(idx_list, hits_list, width=400, title="Select TB Point"
                 "font-size": "13px"},
     )
 
-    hits_map = {idx: hits for idx, hits in zip(idx_list, hits_list)}
+    # Map idx -> {hits, nevts} for the JS callback
+    hits_map  = {idx: hits  for idx, hits  in zip(idx_list, hits_list)}
+    nevts_map = {idx: nevts for idx, nevts in zip(idx_list, nevts_list)}
 
-    cb = CustomJS(args=dict(div=hits_div, hits_map=hits_map, label=label), code="""
+    cb = CustomJS(args=dict(div=hits_div, hits_map=hits_map, nevts_map=nevts_map, label=label), code="""
         const idx = cb_obj.value;
         if (!idx) { div.text = "<i>Select a " + label + " to see LEF hits</i>"; return; }
-        const hits = hits_map[idx] || "NO LEF";
-        div.text = "<b>" + label + " " + idx + " LEF hits:</b><br>" + hits;
+        const hits  = hits_map[idx]  || "NO LEF";
+        const nevts = nevts_map[idx] || "N/A";
+        div.text = "<b>" + label + " " + idx + "</b>"
+                 + " &nbsp;|&nbsp; <b>NEVTs:</b> " + nevts
+                 + "<br>" + hits;
     """)
     select.js_on_change("value", cb)
     return select, hits_div
@@ -815,24 +850,30 @@ def make_checkbox(toggle_groups, _is_inline=True):
 
     cb = CheckboxGroup(
         labels=labels,
-        active=[i for i in range(len(labels))
-                if labels[i] not in ("TB Points", "Cupola TB Points")],
+        active= [i for i in range(len(labels))
+                 if labels[i] not in ("Phase 1 Points", "Phase 2 Points", "Phase 0 Points")],
         width=750,
         inline=_is_inline,
         align='center',
     )
 
-    tb_idx      = labels.index("TB Points")        if "TB Points"        in labels else -1
-    tb_rend     = toggle_groups.get("TB Points",        [])
+    tb_idx      = labels.index("Phase 1 Points")        if "Phase 1 Points"        in labels else -1
+    tb_rend     = toggle_groups.get("Phase 1 Points",        [])
     tb_scatter  = tb_rend[0] if len(tb_rend) > 0 else None
     tb_small    = tb_rend[1] if len(tb_rend) > 1 else None
     tb_large    = tb_rend[2] if len(tb_rend) > 2 else None
 
-    cup_idx     = labels.index("Cupola TB Points") if "Cupola TB Points" in labels else -1
-    cup_rend    = toggle_groups.get("Cupola TB Points", [])
+    cup_idx     = labels.index("Phase 2 Points") if "Phase 2 Points" in labels else -1
+    cup_rend    = toggle_groups.get("Phase 2 Points", [])
     cup_scatter = cup_rend[0] if len(cup_rend) > 0 else None
     cup_small   = cup_rend[1] if len(cup_rend) > 1 else None
     cup_large   = cup_rend[2] if len(cup_rend) > 2 else None
+    
+    pretest_idx     = labels.index("Phase 0 Points") if "Phase 0 Points" in labels else -1
+    pretest_rend    = toggle_groups.get("Phase 0 Points", [])
+    pretest_scatter = pretest_rend[0] if len(pretest_rend) > 0 else None
+    pretest_small   = pretest_rend[1] if len(pretest_rend) > 1 else None
+    pretest_large   = pretest_rend[2] if len(pretest_rend) > 2 else None
 
     cb_callback = CustomJS(
         args=dict(
@@ -841,6 +882,8 @@ def make_checkbox(toggle_groups, _is_inline=True):
             tb_scatter=tb_scatter, tb_small=tb_small, tb_large=tb_large,
             cup_idx=cup_idx,
             cup_scatter=cup_scatter, cup_small=cup_small, cup_large=cup_large,
+            pretest_idx=pretest_idx,
+            pretest_scatter=pretest_scatter, pretest_small=pretest_small, pretest_large=pretest_large,
         ),
         code="""
         for (let g = 0; g < groups.length; g++) {
@@ -853,6 +896,10 @@ def make_checkbox(toggle_groups, _is_inline=True):
                 if (cup_scatter) cup_scatter.visible = visible;
                 if (cup_small)   cup_small.visible   = visible;
                 if (cup_large)   cup_large.visible   = false;
+            } else if (g === pretest_idx) {
+                if (pretest_scatter) pretest_scatter.visible = visible;
+                if (pretest_small)   pretest_small.visible   = visible;
+                if (pretest_large)   pretest_large.visible   = false;
             } else {
                 for (const r of groups[g]) { r.visible = visible; }
             }
@@ -897,42 +944,57 @@ if __name__ == "__main__":
     favicon_tag = '<link rel="icon" type="image/png" href="favicon.png">'
 
     # ---- U and Y panels with TB points ----
-    p_u_pts, tg_u_pts, cup_idx_u, cup_hits_u, tb_idx_u, tb_hits_u = make_detector_panel(
+    p_u_pts, tg_u_pts, cup_idx_u, cup_hits_u, tb_idx_u, tb_hits_u, tb_nevts_u, cup_nevts_u, pretest_idx_u, pretest_hits_u, pretest_nevts_u = make_detector_panel(
         CFG_U, width=850, height=850,
-        points_file="Targets_U_XYAdjusted.csv",
-        cupola_points_file="Targets_U_Cupola_XYAdjusted.csv")
+        phase1_points_file="Targets_U_Phase1_XYAdjusted.csv",
+        phase2_points_file="Targets_U_Phase2_XYAdjusted.csv",
+        phase0_points_file="Targets_U_Phase0_XYAdjusted.csv")
 
-    p_y_pts, tg_y_pts, cup_idx_y, cup_hits_y, tb_idx_y, tb_hits_y = make_detector_panel(
+    p_y_pts, tg_y_pts, cup_idx_y, cup_hits_y, tb_idx_y, tb_hits_y, tb_nevts_y, cup_nevts_y, pretest_idx_y, pretest_hits_y, pretest_nevts_y = make_detector_panel(
         CFG_Y, width=850, height=850,
-        points_file="Targets_Y_XYAdjusted.csv",
-        cupola_points_file="Targets_Y_Cupola_XYAdjusted.csv")
+        phase1_points_file="Targets_Y_Phase1_XYAdjusted.csv",
+        phase2_points_file="Targets_Y_Phase2_XYAdjusted.csv",
+        phase0_points_file="Targets_Y_Phase0_XYAdjusted.csv")
 
     # Dropdowns
-    dropdown_tb_u,  hits_div_tb_u  = make_points_dropdown(tb_idx_u,  tb_hits_u,  label="TB Point")
-    dropdown_tb_y,  hits_div_tb_y  = make_points_dropdown(tb_idx_y,  tb_hits_y,  label="TB Point")
-    dropdown_cup_u, hits_div_cup_u = make_points_dropdown(cup_idx_u, cup_hits_u, title="Select Cupola Point", label="Cupola TB Point")
-    dropdown_cup_y, hits_div_cup_y = make_points_dropdown(cup_idx_y, cup_hits_y, title="Select Cupola Point", label="Cupola TB Point")
+    dropdown_tb_u,  hits_div_tb_u  = make_points_dropdown(tb_idx_u,  tb_hits_u,  tb_nevts_u,  label="Phase 1 Point")
+    dropdown_tb_y,  hits_div_tb_y  = make_points_dropdown(tb_idx_y,  tb_hits_y,  tb_nevts_y,  label="Phase 1 Point")
+    dropdown_cup_u, hits_div_cup_u = make_points_dropdown(cup_idx_u, cup_hits_u, cup_nevts_u, title="Select Phase 2 Point", label="Phase 2 Point")
+    dropdown_cup_y, hits_div_cup_y = make_points_dropdown(cup_idx_y, cup_hits_y, cup_nevts_y, title="Select Phase 2 Point", label="Phase 2 Point")
+    dropdown_pretest_u, hits_div_pretest_u = make_points_dropdown(pretest_idx_u, pretest_hits_u, pretest_nevts_u, title="Select Phase 0 Point", label="Phase 0 Point")
+    dropdown_pretest_y, hits_div_pretest_y = make_points_dropdown(pretest_idx_y, pretest_hits_y, pretest_nevts_y, title="Select Phase 0 Point", label="Phase 0 Point")
 
-    btn_file_U        = make_file_download_button("U_TB_hits.csv",        "U hits list with LEF")
-    btn_file_cupola_U = make_file_download_button("U_Cupola_TB_hits.csv", "U Cupola hits list with LEF")
-    btn_file_Y        = make_file_download_button("Y_TB_hits.csv",        "Y hits list with LEF")
-    btn_file_cupola_Y = make_file_download_button("Y_Cupola_TB_hits.csv", "Y Cupola hits list with LEF")
+    btn_file_phase0_U = make_file_download_button("U_Phase0_hits.csv", "U Phase 0 hits list with LEF")
+    btn_file_phase1_U = make_file_download_button("U_Phase1_hits.csv", "U Phase 1 hits list with LEF")
+    btn_file_phase2_U = make_file_download_button("U_Phase2_hits.csv", "U Phase 2 hits list with LEF")
+
+    btn_file_phase0_Y = make_file_download_button("Y_Phase0_hits.csv", "Y Phase 0 hits list with LEF")    
+    btn_file_phase1_Y = make_file_download_button("Y_Phase1_hits.csv", "Y Phase 1 hits list with LEF")
+    btn_file_phase2_Y = make_file_download_button("Y_Phase2_hits.csv", "Y Phase 2 hits list with LEF")
 
     cb_u_pts = make_checkbox(tg_u_pts, False)
     cb_y_pts = make_checkbox(tg_y_pts, False)
 
-    def build_sidebar(cb, btn1, btn2, dd_tb, div_tb, dd_cup, div_cup):
-        children = [cb, btn1, btn2, Spacer(width=400, height=10)]
+    def build_sidebar(cb, btn1, btn2, btn3, dd_tb, div_tb, dd_cup, div_cup, dd_pretest, div_pretest):
+        children = [cb, btn1, btn2, btn3, Spacer(width=400, height=10)]
         if dd_tb:
             children += [dd_tb, div_tb]
         if dd_cup:
             children += [Spacer(width=400, height=10), dd_cup, div_cup]
+        if dd_pretest:
+            children += [Spacer(width=400, height=10), dd_pretest, div_pretest]
+
+        # Add text line to put under the dropdown as a Div
+        children += [Div(text="<b>Note: Phase 0 points list not updated</b>", width=400, height=30, styles={"padding": "6px", "border": "1px solid #cccccc"})]
         return column(*children)
 
-    sidebar_u = build_sidebar(cb_u_pts, btn_file_U, btn_file_cupola_U,
+    sidebar_u = build_sidebar(cb_u_pts, btn_file_phase0_U, btn_file_phase1_U, btn_file_phase2_U, 
+                              dropdown_pretest_u, hits_div_pretest_u,
                                dropdown_tb_u, hits_div_tb_u,
                                dropdown_cup_u, hits_div_cup_u)
-    sidebar_y = build_sidebar(cb_y_pts, btn_file_Y, btn_file_cupola_Y,
+    
+    sidebar_y = build_sidebar(cb_y_pts, btn_file_phase0_Y, btn_file_phase1_Y, btn_file_phase2_Y,
+                               dropdown_pretest_y, hits_div_pretest_y,
                                dropdown_tb_y, hits_div_tb_y,
                                dropdown_cup_y, hits_div_cup_y)
 
@@ -945,11 +1007,11 @@ if __name__ == "__main__":
     _inject_favicon("AMS_L0_detector_layout_Y.html", favicon_tag)
 
     # ---- Main overview panel (no TB points) ----
-    p_u, tg_u, _, _, _, _ = make_detector_panel(CFG_U, width=850, height=850)
-    p_y, tg_y, _, _, _, _ = make_detector_panel(CFG_Y, width=850, height=850)
+    p_u, tg_u, _, _, _, _, _, _, _, _, _ = make_detector_panel(CFG_U, width=850, height=850)
+    p_y, tg_y, _, _, _, _, _, _, _, _, _ = make_detector_panel(CFG_Y, width=850, height=850)
 
-    tg_u.pop("TB Points"); tg_u.pop("Cupola TB Points")
-    tg_y.pop("TB Points"); tg_y.pop("Cupola TB Points")
+    tg_u.pop("Phase 1 Points"); tg_u.pop("Phase 2 Points"); tg_u.pop("Phase 0 Points")
+    tg_y.pop("Phase 1 Points"); tg_y.pop("Phase 2 Points"); tg_y.pop("Phase 0 Points")
 
     cb_u = make_checkbox(tg_u)
     cb_y = make_checkbox(tg_y)
