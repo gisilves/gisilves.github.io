@@ -1,6 +1,6 @@
 """
 Detector layout JS viewer — Bokeh backend
-Script generates html file detector_layout.html
+Script generates html files AMS_L0_detector_layout_X.html, AMS_L0_detector_layout_Y.html and AMS_L0_detector_layout.html
 """
 
 import numpy as np
