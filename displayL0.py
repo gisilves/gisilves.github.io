@@ -8,7 +8,7 @@ from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button, Div, Select, Spacer
 from bokeh.layouts import row, column
 from bokeh.io import output_file, save
-    
+
 # ---------------------------------------------------------------------------
 # Detector configurations
 # ---------------------------------------------------------------------------
@@ -96,7 +96,6 @@ def _safe_hits_str(hits):
     if isinstance(hits, set):
         cleaned = ", ".join(sorted(h for h in hits if h))
         return cleaned if cleaned else "NO LEF"
-    # already a string (e.g. "NO LEF")
     return hits if hits else "NO LEF"
 
 
@@ -151,7 +150,16 @@ def get_tiles_in_radius(p_x, p_y, radius, die_source):
 # Factory
 # ---------------------------------------------------------------------------
 
-def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, phase2_points_file=None, phase0_points_file=None):
+def make_detector_panel(cfg, width=850, height=850,
+                        stepA_points_file=None,
+                        stepB_points_file=None,
+                        stepC_points_file=None):
+    """
+    Step slot → name mapping:
+      U layer:  stepA = "Step 3",  stepB = "Step 4",  stepC = "Step 5" (unused)
+      Y layer:  stepA = "Step 0",  stepB = "Step 1",  stepC = "Step 2"
+    Always pass files via the slot whose name matches the desired label.
+    """
 
     N_LADDERS            = cfg["N_LADDERS"]
     CELL_WIDTH           = cfg["CELL_WIDTH"]
@@ -217,8 +225,8 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
     CY = CENTER_GAP_Y / 2
 
     def transform(x_local, y_local, flip_x, flip_y):
-        xg = (CX + x_local)         if flip_x == 1 else (-CX - (x_local + CELL_WIDTH))
-        yg = (CY + y_local)         if flip_y == 1 else (-CY - (y_local + CELL_HEIGHT))
+        xg = (CX + x_local)          if flip_x == 1 else (-CX - (x_local + CELL_WIDTH))
+        yg = (CY + y_local)          if flip_y == 1 else (-CY - (y_local + CELL_HEIGHT))
         return xg, yg
 
     _cos = np.cos(np.radians(ROTATION_DEG))
@@ -227,6 +235,17 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
     def rotate(x, y, deg):
         c, s = np.cos(np.radians(deg)), np.sin(np.radians(deg))
         return x * c - y * s, x * s + y * c
+
+    # ---- Step name assignment ----
+    is_U = "AMS-L0 U Detector Layout" in TITLE
+    if is_U:
+        stepA_name = "Step 3"
+        stepB_name = "Step 4"
+        stepC_name = "Step 5"   # unused for U; kept for structural symmetry
+    else:
+        stepA_name = "Step 0"
+        stepB_name = "Step 1"
+        stepC_name = "Step 2"
 
     # ---- Silicon die data ----
     die_data = {k: [] for k in [
@@ -238,24 +257,25 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
         "bbox_xmin", "bbox_xmax", "bbox_ymin", "bbox_ymax",
     ]}
 
-    # Load points files
-    phase1_points = []
-    phase2_points = []
-    phase0_points = []
-    if phase1_points_file is not None:
-        phase1_points = import_csv(phase1_points_file)
-        if phase2_points_file is not None:
-            phase2_points = import_csv(phase2_points_file)
-            if phase0_points_file is not None:
-                phase0_points = import_csv(phase0_points_file)
+    # ---- Load points files — independent guards ----
+    stepA_points = []
+    stepB_points = []
+    stepC_points = []
+
+    if stepA_points_file is not None:
+        stepA_points = import_csv(stepA_points_file)
+    if stepB_points_file is not None:
+        stepB_points = import_csv(stepB_points_file)
+    if stepC_points_file is not None:
+        stepC_points = import_csv(stepC_points_file)
 
     # Correct for different robotic arms coordinate system
-    if "AMS-L0 U Detector Layout" in cfg["TITLE"]:
-        phase1_points        = [(-p[0],  p[1], p[2]) for p in phase1_points]
-        phase2_points = [(-p[0],  p[1], p[2]) for p in phase2_points]
-        phase0_points = [(-p[0],  p[1], p[2]) for p in phase0_points]
-        
-    # Note: for Y layer, combination of coordinate system correction and mirroring 
+    if is_U:
+        stepA_points = [(-p[0], p[1], p[2]) for p in stepA_points]
+        stepB_points = [(-p[0], p[1], p[2]) for p in stepB_points]
+        stepC_points = [(-p[0], p[1], p[2]) for p in stepC_points]
+
+    # Note: for Y layer, combination of coordinate system correction and mirroring
     # (Y layer seen from above AMS looking down)
     # gives points with the same coordinates as the ones in the csv file
 
@@ -263,17 +283,17 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
         for (col, row_idx, xl, yl) in q1_cells_local:
             xg, yg = transform(xl, yl, fx, fy)
 
-            x_bl, y_bl = rotate(xg,             yg,             ROTATION_DEG)
-            x_br, y_br = rotate(xg + CELL_WIDTH, yg,             ROTATION_DEG)
-            x_tr, y_tr = rotate(xg + CELL_WIDTH, yg + CELL_HEIGHT, ROTATION_DEG)
-            x_tl, y_tl = rotate(xg,             yg + CELL_HEIGHT, ROTATION_DEG)
+            x_bl, y_bl = rotate(xg,              yg,              ROTATION_DEG)
+            x_br, y_br = rotate(xg + CELL_WIDTH,  yg,              ROTATION_DEG)
+            x_tr, y_tr = rotate(xg + CELL_WIDTH,  yg + CELL_HEIGHT, ROTATION_DEG)
+            x_tl, y_tl = rotate(xg,              yg + CELL_HEIGHT, ROTATION_DEG)
             cx = (x_bl + x_br + x_tr + x_tl) / 4
             cy = (y_bl + y_br + y_tr + y_tl) / 4
 
-            ax_bl_x_r, ax_bl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,               yg + ACTIVE_AREA_OFFSET_Y,                ROTATION_DEG)
-            ax_br_x_r, ax_br_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH, yg + ACTIVE_AREA_OFFSET_Y,                ROTATION_DEG)
-            ax_tr_x_r, ax_tr_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH, yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG)
-            ax_tl_x_r, ax_tl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,               yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG)
+            ax_bl_x_r, ax_bl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y,                 ROTATION_DEG)
+            ax_br_x_r, ax_br_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y,                 ROTATION_DEG)
+            ax_tr_x_r, ax_tr_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT,  ROTATION_DEG)
+            ax_tl_x_r, ax_tl_y_r = rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT,  ROTATION_DEG)
 
             lbl     = LADDER_LABELS[qname][col]
             lbl_lef = LEF_LABELS[qname][col]
@@ -281,21 +301,21 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
 
             die_data["xs"].append([x_bl, x_br, x_tr, x_tl])
             die_data["ys"].append([y_bl, y_br, y_tr, y_tl])
-            die_data["x"].append(cx);             die_data["y"].append(cy)
-            die_data["w"].append(CELL_WIDTH);      die_data["h"].append(CELL_HEIGHT)
+            die_data["x"].append(cx);              die_data["y"].append(cy)
+            die_data["w"].append(CELL_WIDTH);       die_data["h"].append(CELL_HEIGHT)
             die_data["qname"].append(qname)
             die_data["lef"].append(lbl_lef)
-            die_data["col"].append(col);           die_data["row"].append(row_idx)
-            die_data["label"].append(lbl);         die_data["si_idx"].append(si_idx)
-            die_data["x_bl"].append(x_bl);         die_data["y_bl"].append(y_bl)
-            die_data["x_br"].append(x_br);         die_data["y_br"].append(y_br)
-            die_data["x_tr"].append(x_tr);         die_data["y_tr"].append(y_tr)
-            die_data["x_tl"].append(x_tl);         die_data["y_tl"].append(y_tl)
-            die_data["ax_bl_x"].append(ax_bl_x_r); die_data["ax_bl_y"].append(ax_bl_y_r)
-            die_data["ax_br_x"].append(ax_br_x_r); die_data["ax_br_y"].append(ax_br_y_r)
-            die_data["ax_tr_x"].append(ax_tr_x_r); die_data["ax_tr_y"].append(ax_tr_y_r)
-            die_data["ax_tl_x"].append(ax_tl_x_r); die_data["ax_tl_y"].append(ax_tl_y_r)
-            die_data["die_cx"].append(cx);         die_data["die_cy"].append(cy)
+            die_data["col"].append(col);            die_data["row"].append(row_idx)
+            die_data["label"].append(lbl);          die_data["si_idx"].append(si_idx)
+            die_data["x_bl"].append(x_bl);          die_data["y_bl"].append(y_bl)
+            die_data["x_br"].append(x_br);          die_data["y_br"].append(y_br)
+            die_data["x_tr"].append(x_tr);          die_data["y_tr"].append(y_tr)
+            die_data["x_tl"].append(x_tl);          die_data["y_tl"].append(y_tl)
+            die_data["ax_bl_x"].append(ax_bl_x_r);  die_data["ax_bl_y"].append(ax_bl_y_r)
+            die_data["ax_br_x"].append(ax_br_x_r);  die_data["ax_br_y"].append(ax_br_y_r)
+            die_data["ax_tr_x"].append(ax_tr_x_r);  die_data["ax_tr_y"].append(ax_tr_y_r)
+            die_data["ax_tl_x"].append(ax_tl_x_r);  die_data["ax_tl_y"].append(ax_tl_y_r)
+            die_data["die_cx"].append(cx);          die_data["die_cy"].append(cy)
             all_cx = [x_bl, x_br, x_tr, x_tl]
             all_cy = [y_bl, y_br, y_tr, y_tl]
             die_data["bbox_xmin"].append(min(all_cx))
@@ -306,7 +326,7 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
     die_source = ColumnDataSource(die_data)
 
     # ---- Save nominal positions CSV ----
-    with open(f"{cfg['TITLE'][7]}_nominal_positions.csv", "w") as f:
+    with open(f"{TITLE[7]}_nominal_positions.csv", "w") as f:
         print(f"Writing nominal positions to {f.name}")
         f.write("Layer,qname,Si detector,LEF,"
                 "Die BL x,Die BL y,Die BR x,Die BR y,Die TR x,Die TR y,Die TL x,Die TL y,"
@@ -315,7 +335,7 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
         for i in range(len(die_data["qname"])):
             si_det = f"{die_data['label'][i]}-{die_data['si_idx'][i]}"
             f.write(
-                f"{cfg['TITLE'][7]},{die_data['qname'][i]},{si_det},{die_data['lef'][i]},"
+                f"{TITLE[7]},{die_data['qname'][i]},{si_det},{die_data['lef'][i]},"
                 f"{die_data['x_bl'][i]},{die_data['y_bl'][i]},"
                 f"{die_data['x_br'][i]},{die_data['y_br'][i]},"
                 f"{die_data['x_tr'][i]},{die_data['y_tr'][i]},"
@@ -326,43 +346,43 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
                 f"{die_data['ax_tl_x'][i]},{die_data['ax_tl_y'][i]}\n"
             )
 
-    # ---- Compute TB hits ----
-    TB_hits_phase1 = []   # list of [layer, idx, hits_set_or_str, nevts]
-    TB_hits_phase2 = []
-    TB_hits_phase0 = []
+    # ---- Compute hits ----
+    TB_hits_stepA = []
+    TB_hits_stepB = []
+    TB_hits_stepC = []
 
-    if phase1_points_file is not None:
-        hits_file = f"{cfg['TITLE'][7]}_Phase1_hits.csv"
+    if stepA_points:
+        hits_file = f"{TITLE[7]}_{stepA_name.replace(' ', '')}_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
-            f.write("Layer,Phase 1 point,Hits,NEVTs\n")
-            for idx, (ptx, pty, nevts) in enumerate(phase1_points, start=1):
+            f.write(f"Layer,{stepA_name} point,Hits\n")
+            for idx, (ptx, pty, nevts) in enumerate(stepA_points, start=1):
                 hits = get_tiles_in_radius(ptx, pty, 10, die_source)
                 hits_str = _safe_hits_str(hits)
-                f.write(f"{cfg['TITLE'][7]},{idx},{hits_str}\n")
-                TB_hits_phase1.append([cfg['TITLE'][7], idx, hits, nevts])
+                f.write(f"{TITLE[7]},{idx},{hits_str}\n")
+                TB_hits_stepA.append([TITLE[7], idx, hits])
 
-        if phase2_points_file is not None:
-            hits_file = f"{cfg['TITLE'][7]}_Phase2_hits.csv"
-            print(f"Writing hits to {hits_file}")
-            with open(hits_file, "w") as f:
-                f.write("Layer,Phase 2 point,Hits,NEVTs\n")
-                for idx, (ptx, pty, nevts) in enumerate(phase2_points, start=1):
-                    hits = get_tiles_in_radius(ptx, pty, 10, die_source)
-                    hits_str = _safe_hits_str(hits)
-                    f.write(f"{cfg['TITLE'][7]},{idx},{hits_str}\n")
-                    TB_hits_phase2.append([cfg['TITLE'][7], idx, hits, nevts])
-                    
-            if phase0_points_file is not None:
-                hits_file = f"{cfg['TITLE'][7]}_Phase0_hits.csv"
-                print(f"Writing hits to {hits_file}")
-                with open(hits_file, "w") as f:
-                    f.write("Layer,Phase 0 point,Hits,NEVTs\n")
-                    for idx, (ptx, pty, nevts) in enumerate(phase0_points, start=1):
-                        hits = get_tiles_in_radius(ptx, pty, 10, die_source)
-                        hits_str = _safe_hits_str(hits)
-                        f.write(f"{cfg['TITLE'][7]},{idx},{hits_str}\n")
-                        TB_hits_phase0.append([cfg['TITLE'][7], idx, hits, nevts])
+    if stepB_points:
+        hits_file = f"{TITLE[7]}_{stepB_name.replace(' ', '')}_hits.csv"
+        print(f"Writing hits to {hits_file}")
+        with open(hits_file, "w") as f:
+            f.write(f"Layer,{stepB_name} point,Hits\n")
+            for idx, (ptx, pty, nevts) in enumerate(stepB_points, start=1):
+                hits = get_tiles_in_radius(ptx, pty, 10, die_source)
+                hits_str = _safe_hits_str(hits)
+                f.write(f"{TITLE[7]},{idx},{hits_str}\n")
+                TB_hits_stepB.append([TITLE[7], idx, hits])
+
+    if stepC_points:
+        hits_file = f"{TITLE[7]}_{stepC_name.replace(' ', '')}_hits.csv"
+        print(f"Writing hits to {hits_file}")
+        with open(hits_file, "w") as f:
+            f.write(f"Layer,{stepC_name} point,Hits\n")
+            for idx, (ptx, pty, nevts) in enumerate(stepC_points, start=1):
+                hits = get_tiles_in_radius(ptx, pty, 10, die_source)
+                hits_str = _safe_hits_str(hits)
+                f.write(f"{TITLE[7]},{idx},{hits_str}\n")
+                TB_hits_stepC.append([TITLE[7], idx, hits])
 
     # ---- Active area ----
     active_data = dict(xs=[], ys=[])
@@ -370,10 +390,10 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
         for (col, row_idx, xl, yl) in q1_cells_local:
             xg, yg = transform(xl, yl, fx, fy)
             corners = [
-                rotate(xg + ACTIVE_AREA_OFFSET_X,               yg + ACTIVE_AREA_OFFSET_Y,                ROTATION_DEG),
-                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH, yg + ACTIVE_AREA_OFFSET_Y,                ROTATION_DEG),
-                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH, yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG),
-                rotate(xg + ACTIVE_AREA_OFFSET_X,               yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT, ROTATION_DEG),
+                rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y,                 ROTATION_DEG),
+                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y,                 ROTATION_DEG),
+                rotate(xg + ACTIVE_AREA_OFFSET_X + ACTIVE_WIDTH,  yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT,  ROTATION_DEG),
+                rotate(xg + ACTIVE_AREA_OFFSET_X,                yg + ACTIVE_AREA_OFFSET_Y + ACTIVE_HEIGHT,  ROTATION_DEG),
             ]
             active_data["xs"].append([c[0] for c in corners])
             active_data["ys"].append([c[1] for c in corners])
@@ -390,8 +410,8 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
         by_loc = (CY + top_local + LABEL_PAD_Y) if flip_y == 1 else \
                  (-CY - top_local - LABEL_PAD_Y - LABEL_HEIGHT)
         bw = CELL_WIDTH - 4
-        c0 = rotate(bx_loc,      by_loc,              ROTATION_DEG)
-        c1 = rotate(bx_loc + bw, by_loc,              ROTATION_DEG)
+        c0 = rotate(bx_loc,      by_loc,               ROTATION_DEG)
+        c1 = rotate(bx_loc + bw, by_loc,               ROTATION_DEG)
         c2 = rotate(bx_loc + bw, by_loc + LABEL_HEIGHT, ROTATION_DEG)
         c3 = rotate(bx_loc,      by_loc + LABEL_HEIGHT, ROTATION_DEG)
         xs = [c0[0], c1[0], c2[0], c3[0]]
@@ -413,11 +433,11 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
             xg, yg = transform(xl, yl, fx, fy)
             for (dx, dy) in CROSS_POSITIONS_LOCAL:
                 ccx, ccy = xg + dx, yg + dy
-                ax, ay = rotate(ccx - CROSS_ARM_X, ccy,             ROTATION_DEG)
-                bx, by = rotate(ccx + CROSS_ARM_X, ccy,             ROTATION_DEG)
+                ax, ay = rotate(ccx - CROSS_ARM_X, ccy,              ROTATION_DEG)
+                bx, by = rotate(ccx + CROSS_ARM_X, ccy,              ROTATION_DEG)
                 cross_xs.append([ax, bx]); cross_ys.append([ay, by])
-                ax, ay = rotate(ccx,             ccy - CROSS_ARM_Y, ROTATION_DEG)
-                bx, by = rotate(ccx,             ccy + CROSS_ARM_Y, ROTATION_DEG)
+                ax, ay = rotate(ccx,              ccy - CROSS_ARM_Y, ROTATION_DEG)
+                bx, by = rotate(ccx,              ccy + CROSS_ARM_Y, ROTATION_DEG)
                 cross_xs.append([ax, bx]); cross_ys.append([ay, by])
     cross_source = ColumnDataSource(dict(xs=cross_xs, ys=cross_ys))
 
@@ -483,23 +503,23 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
             xl = col_x_start_local[col]
             yl = GLOBAL_Y_OFFSET + ladder_y_offset[col] + (si_per_ladder[col] - 1) * si_step
             xg, yg = transform(xl, yl, fx, fy)
-            if cfg["ROTATION_DEG"] == 0:
+            if ROTATION_DEG == 0:
                 if fy == -1:
-                    brx, bry = rotate(xg + CELL_WIDTH - 20, yg + 10,              ROTATION_DEG)
+                    brx, bry = rotate(xg + CELL_WIDTH - 20, yg + 10,               ROTATION_DEG)
                 else:
-                    brx, bry = rotate(xg + 10,              yg + CELL_HEIGHT - 30, ROTATION_DEG)
+                    brx, bry = rotate(xg + 10,               yg + CELL_HEIGHT - 30, ROTATION_DEG)
             else:
                 if fy == -1:
-                    brx, bry = rotate(xg + 10,              yg + 10,              ROTATION_DEG)
+                    brx, bry = rotate(xg + 10,               yg + 10,               ROTATION_DEG)
                 else:
-                    brx, bry = rotate(xg + CELL_WIDTH - 20, yg + CELL_HEIGHT - 30, ROTATION_DEG)
+                    brx, bry = rotate(xg + CELL_WIDTH - 20,  yg + CELL_HEIGHT - 30, ROTATION_DEG)
             r = p.text(x=[brx], y=[bry], text=["0"],
                        angle=rot_rad,
                        text_font_size="7pt", text_font_style="bold",
                        text_color="#ffffff", text_align="left", text_baseline="top")
             strip_renderers.append(r)
 
-    # ---- Ladder label text (captured for toggle, grouped with lb_renderer) ----
+    # ---- Ladder label text (captured for toggle) ----
     lb_text_renderers = []
     for (qname, fx, fy) in QL_LIST:
         for col in range(N_LADDERS):
@@ -530,10 +550,10 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
 
     # ---- Relative bearing labels ----
     for text, x, y, angle, baseline in [
-        ("PORT", width / 2 - 50, 0,           0,      "bottom"),
-        ("STBD", width / 2 - 50, height - 70, 0,      "top"),
-        ("WAKE", width - 100,    height/2-30,  1.5708, "bottom"),
-        ("RAM",  0,               height/2-30,  1.5708, "top"),
+        ("PORT", width / 2 - 50, 0,             0,      "bottom"),
+        ("STBD", width / 2 - 50, height - 70,   0,      "top"),
+        ("WAKE", width - 100,    height/2 - 30,  1.5708, "bottom"),
+        ("RAM",  0,              height/2 - 30,  1.5708, "top"),
     ]:
         p.add_layout(Label(
             x=x, y=y, x_units="screen", y_units="screen",
@@ -557,7 +577,7 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
     )
     p.add_layout(lbl_name)
 
-    if phase1_points_file is None:
+    if not stepB_points:
         # ---- Si die HoverTool ----
         p.add_tools(HoverTool(renderers=[die_glyph], tooltips=[
             ("Quadrant",    "@qname"),
@@ -639,14 +659,14 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
             lbl_name.text = d['qname'][i] + "  " + d['label'][i] + "-" + d['si_idx'][i] + " " + d['lef'][i];
             lbl_name.visible = true;
             const corners = [
-                [lbl_bl,     'ax_bl_x','ax_bl_y'],
-                [lbl_br,     'ax_br_x','ax_br_y'],
-                [lbl_tr,     'ax_tr_x','ax_tr_y'],
-                [lbl_tl,     'ax_tl_x','ax_tl_y'],
-                [lbl_die_bl, 'x_bl',   'y_bl'   ],
-                [lbl_die_br, 'x_br',   'y_br'   ],
-                [lbl_die_tr, 'x_tr',   'y_tr'   ],
-                [lbl_die_tl, 'x_tl',   'y_tl'   ],
+                [lbl_bl,     'ax_bl_x', 'ax_bl_y'],
+                [lbl_br,     'ax_br_x', 'ax_br_y'],
+                [lbl_tr,     'ax_tr_x', 'ax_tr_y'],
+                [lbl_tl,     'ax_tl_x', 'ax_tl_y'],
+                [lbl_die_bl, 'x_bl',    'y_bl'   ],
+                [lbl_die_br, 'x_br',    'y_br'   ],
+                [lbl_die_tr, 'x_tr',    'y_tr'   ],
+                [lbl_die_tl, 'x_tl',    'y_tl'   ],
             ];
             for (const [lbl, kx, ky] of corners) {
                 lbl.x = d[kx][i]; lbl.y = d[ky][i];
@@ -723,8 +743,7 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
         idx_list   = [str(i) for i in range(1, len(pts_list) + 1)]
         nevts_list = [str(int(r[2])) for r in pts_list]
 
-        # hits_list_raw: list of [layer, idx, set_or_str, nevts]
-        hits_by_idx  = {entry[1]: entry[2] for entry in hits_list_raw}
+        hits_by_idx   = {entry[1]: entry[2] for entry in hits_list_raw}
         hits_str_list = [
             _safe_hits_str(hits_by_idx.get(i, set()))
             for i in range(1, len(pts_list) + 1)
@@ -773,52 +792,43 @@ def make_detector_panel(cfg, width=850, height=850, phase1_points_file=None, pha
 
         return [r_scatter, r_small, r_large], idx_list, hits_str_list, nevts_list
 
-    # ---- Phase 1 Points overlay ----
-    phase1_points_renderers, phase1_idx_list, phase1_hits_str_list, phase1_nevts_list = \
-        _make_points_overlay(phase1_points, TB_hits_phase1, "#ffff00", "Phase 1 Point")
+    # ---- Points overlays ----
+    stepA_rend, stepA_idx, stepA_hits_str, stepA_nevts = \
+        _make_points_overlay(stepA_points, TB_hits_stepA, "#0004ff", stepA_name + " Point")
 
-    # ---- Phase 2 Points overlay ----
-    phase2_points_renderers, phase2_idx_list, phase2_hits_str_list, phase2_nevts_list = \
-        _make_points_overlay(phase2_points, TB_hits_phase2, "#ff5500", "Phase 2 Point")
-        
-    # ---- Phase 0 Points overlay ----
-    phase0_points_renderers, phase0_idx_list, phase0_hits_str_list, phase0_nevts_list = \
-        _make_points_overlay(phase0_points, TB_hits_phase0, "#0004ff", "Phase 0 Point")
+    stepB_rend, stepB_idx, stepB_hits_str, stepB_nevts = \
+        _make_points_overlay(stepB_points, TB_hits_stepB, "#ffff00", stepB_name + " Point")
+
+    stepC_rend, stepC_idx, stepC_hits_str, stepC_nevts = \
+        _make_points_overlay(stepC_points, TB_hits_stepC, "#ff5500", stepC_name + " Point")
 
     # ---- Toggle groups ----
     toggle_groups = {
-        "QL labels":        ql_overlay_labels,
-        "LEF boxes":        [lb_renderer] + lb_text_renderers,
-        "0 strip markers":  strip_renderers,
-        "Axis arrows":      axis_renderers,
-        "Phase 0 Points": phase0_points_renderers,
-        "Phase 1 Points": phase1_points_renderers,
-        "Phase 2 Points": phase2_points_renderers,
+        "QL labels":            ql_overlay_labels,
+        "LEF boxes":            [lb_renderer] + lb_text_renderers,
+        "0 strip markers":      strip_renderers,
+        "Axis arrows":          axis_renderers,
+        stepA_name + " Points": stepA_rend,
+        stepB_name + " Points": stepB_rend,
+        stepC_name + " Points": stepC_rend,
     }
 
     return (p, toggle_groups,
-            phase2_idx_list, phase2_hits_str_list,
-            phase1_idx_list, phase1_hits_str_list,
-            phase1_nevts_list,   phase2_nevts_list,
-            phase0_idx_list, phase0_hits_str_list,
-            phase0_nevts_list)
+            stepA_idx, stepA_hits_str, stepA_nevts,
+            stepB_idx, stepB_hits_str, stepB_nevts,
+            stepC_idx, stepC_hits_str, stepC_nevts)
 
 
 # ---------------------------------------------------------------------------
 # Widget factories
 # ---------------------------------------------------------------------------
 
-def make_points_dropdown(idx_list, hits_list, nevts_list, width=400, title="Select Phase 1 Point", label="Phase 1 Point"):
+def make_points_dropdown(idx_list, hits_list, nevts_list, width, title, label):
     if not idx_list:
         return None, None
 
-    options = [("", title)] + [
-        (idx, f"{label} {idx}")
-        for idx, nevts in zip(idx_list, nevts_list)
-    ]
-
-    select = Select(value="", options=options, width=width)
-
+    options  = [("", title)] + [(idx, f"{label} {idx}") for idx in idx_list]
+    select   = Select(value="", options=options, width=width)
     hits_div = Div(
         text=f"<i>Select a {label} to see LEF hits</i>",
         width=width,
@@ -827,7 +837,6 @@ def make_points_dropdown(idx_list, hits_list, nevts_list, width=400, title="Sele
                 "font-size": "13px"},
     )
 
-    # Map idx -> {hits, nevts} for the JS callback
     hits_map  = {idx: hits  for idx, hits  in zip(idx_list, hits_list)}
     nevts_map = {idx: nevts for idx, nevts in zip(idx_list, nevts_list)}
 
@@ -844,62 +853,66 @@ def make_points_dropdown(idx_list, hits_list, nevts_list, width=400, title="Sele
     return select, hits_div
 
 
-def make_checkbox(toggle_groups, _is_inline=True):
+def make_checkbox(toggle_groups, _is_inline=True, is_U=False):
     labels        = list(toggle_groups.keys())
     all_renderers = list(toggle_groups.values())
 
+    if is_U:
+        stepA_name = "Step 3"
+        stepB_name = "Step 4"
+        stepC_name = "Step 5"
+    else:
+        stepA_name = "Step 0"
+        stepB_name = "Step 1"
+        stepC_name = "Step 2"
+
+    hidden = {stepA_name + " Points", stepB_name + " Points", stepC_name + " Points"}
     cb = CheckboxGroup(
         labels=labels,
-        active= [i for i in range(len(labels))
-                 if labels[i] not in ("Phase 1 Points", "Phase 2 Points", "Phase 0 Points")],
+        active=[i for i in range(len(labels)) if labels[i] not in hidden],
         width=750,
         inline=_is_inline,
         align='center',
     )
 
-    tb_idx      = labels.index("Phase 1 Points")        if "Phase 1 Points"        in labels else -1
-    tb_rend     = toggle_groups.get("Phase 1 Points",        [])
-    tb_scatter  = tb_rend[0] if len(tb_rend) > 0 else None
-    tb_small    = tb_rend[1] if len(tb_rend) > 1 else None
-    tb_large    = tb_rend[2] if len(tb_rend) > 2 else None
+    def _slot(name):
+        key  = name + " Points"
+        idx  = labels.index(key) if key in labels else -1
+        rend = toggle_groups.get(key, [])
+        return (idx,
+                rend[0] if len(rend) > 0 else None,
+                rend[1] if len(rend) > 1 else None,
+                rend[2] if len(rend) > 2 else None)
 
-    cup_idx     = labels.index("Phase 2 Points") if "Phase 2 Points" in labels else -1
-    cup_rend    = toggle_groups.get("Phase 2 Points", [])
-    cup_scatter = cup_rend[0] if len(cup_rend) > 0 else None
-    cup_small   = cup_rend[1] if len(cup_rend) > 1 else None
-    cup_large   = cup_rend[2] if len(cup_rend) > 2 else None
-    
-    pretest_idx     = labels.index("Phase 0 Points") if "Phase 0 Points" in labels else -1
-    pretest_rend    = toggle_groups.get("Phase 0 Points", [])
-    pretest_scatter = pretest_rend[0] if len(pretest_rend) > 0 else None
-    pretest_small   = pretest_rend[1] if len(pretest_rend) > 1 else None
-    pretest_large   = pretest_rend[2] if len(pretest_rend) > 2 else None
+    cb1_idx, cb1_scatter, cb1_small, cb1_large = _slot(stepA_name)
+    cb2_idx, cb2_scatter, cb2_small, cb2_large = _slot(stepB_name)
+    cb3_idx, cb3_scatter, cb3_small, cb3_large = _slot(stepC_name)
 
     cb_callback = CustomJS(
         args=dict(
             cb=cb, groups=all_renderers,
-            tb_idx=tb_idx,
-            tb_scatter=tb_scatter, tb_small=tb_small, tb_large=tb_large,
-            cup_idx=cup_idx,
-            cup_scatter=cup_scatter, cup_small=cup_small, cup_large=cup_large,
-            pretest_idx=pretest_idx,
-            pretest_scatter=pretest_scatter, pretest_small=pretest_small, pretest_large=pretest_large,
+            cb1_idx=cb1_idx,
+            cb1_scatter=cb1_scatter, cb1_small=cb1_small, cb1_large=cb1_large,
+            cb2_idx=cb2_idx,
+            cb2_scatter=cb2_scatter, cb2_small=cb2_small, cb2_large=cb2_large,
+            cb3_idx=cb3_idx,
+            cb3_scatter=cb3_scatter, cb3_small=cb3_small, cb3_large=cb3_large,
         ),
         code="""
         for (let g = 0; g < groups.length; g++) {
             const visible = cb.active.includes(g);
-            if (g === tb_idx) {
-                if (tb_scatter) tb_scatter.visible = visible;
-                if (tb_small)   tb_small.visible   = visible;
-                if (tb_large)   tb_large.visible   = false;
-            } else if (g === cup_idx) {
-                if (cup_scatter) cup_scatter.visible = visible;
-                if (cup_small)   cup_small.visible   = visible;
-                if (cup_large)   cup_large.visible   = false;
-            } else if (g === pretest_idx) {
-                if (pretest_scatter) pretest_scatter.visible = visible;
-                if (pretest_small)   pretest_small.visible   = visible;
-                if (pretest_large)   pretest_large.visible   = false;
+            if (g === cb1_idx) {
+                if (cb1_scatter) cb1_scatter.visible = visible;
+                if (cb1_small)   cb1_small.visible   = visible;
+                if (cb1_large)   cb1_large.visible   = false;
+            } else if (g === cb2_idx) {
+                if (cb2_scatter) cb2_scatter.visible = visible;
+                if (cb2_small)   cb2_small.visible   = visible;
+                if (cb2_large)   cb2_large.visible   = false;
+            } else if (g === cb3_idx) {
+                if (cb3_scatter) cb3_scatter.visible = visible;
+                if (cb3_small)   cb3_small.visible   = visible;
+                if (cb3_large)   cb3_large.visible   = false;
             } else {
                 for (const r of groups[g]) { r.visible = visible; }
             }
@@ -935,6 +948,22 @@ def _inject_favicon(html_file, favicon_tag):
         f.seek(0); f.writelines(content); f.truncate()
 
 
+def build_sidebar(cb, btn1, btn2, btn3, dd1, div1, dd2, div2, dd3, div3, is_Y=False):
+    if is_Y:
+        children = [cb, btn1, btn2, btn3, Spacer(width=400, height=10)]
+    else:
+        children = [cb, btn1, btn2, Spacer(width=400, height=10)]
+
+    if dd1:
+        children += [dd1, div1]
+    if dd2:
+        children += [Spacer(width=400, height=10), dd2, div2]
+    if dd3:
+        children += [Spacer(width=400, height=10), dd3, div3]
+
+    return column(*children)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -943,60 +972,61 @@ if __name__ == "__main__":
 
     favicon_tag = '<link rel="icon" type="image/png" href="favicon.png">'
 
-    # ---- U and Y panels with TB points ----
-    p_u_pts, tg_u_pts, cup_idx_u, cup_hits_u, tb_idx_u, tb_hits_u, tb_nevts_u, cup_nevts_u, pretest_idx_u, pretest_hits_u, pretest_nevts_u = make_detector_panel(
+    # ---- U panel ----
+    # stepA = Step 3 (Phase1), stepB = Step 4 (Phase2), stepC unused
+    (p_u_pts, tg_u_pts,
+     u_s3_idx, u_s3_hits, u_s3_nevts,
+     u_s4_idx, u_s4_hits, u_s4_nevts,
+     _,        _,          _) = make_detector_panel(
         CFG_U, width=850, height=850,
-        phase1_points_file="Targets_U_Phase1_XYAdjusted.csv",
-        phase2_points_file="Targets_U_Phase2_XYAdjusted.csv",
-        phase0_points_file="Targets_U_Phase0_XYAdjusted.csv")
+        stepA_points_file="Targets_U_Step3_XYAdjusted.csv",
+        stepB_points_file="Targets_U_Step4_XYAdjusted.csv")
 
-    p_y_pts, tg_y_pts, cup_idx_y, cup_hits_y, tb_idx_y, tb_hits_y, tb_nevts_y, cup_nevts_y, pretest_idx_y, pretest_hits_y, pretest_nevts_y = make_detector_panel(
+    # ---- Y panel ----
+    # stepA = Step 0 (Phase0), stepB = Step 1 (Phase1), stepC = Step 2 (Phase2)
+    (p_y_pts, tg_y_pts,
+     y_s0_idx, y_s0_hits, y_s0_nevts,
+     y_s1_idx, y_s1_hits, y_s1_nevts,
+     y_s2_idx, y_s2_hits, y_s2_nevts) = make_detector_panel(
         CFG_Y, width=850, height=850,
-        phase1_points_file="Targets_Y_Phase1_XYAdjusted.csv",
-        phase2_points_file="Targets_Y_Phase2_XYAdjusted.csv",
-        phase0_points_file="Targets_Y_Phase0_XYAdjusted.csv")
+        stepA_points_file="Targets_Y_Step0_XYAdjusted.csv",
+        stepB_points_file="Targets_Y_Step1_XYAdjusted.csv",
+        stepC_points_file="Targets_Y_Step2_XYAdjusted.csv")
 
-    # Dropdowns
-    dropdown_tb_u,  hits_div_tb_u  = make_points_dropdown(tb_idx_u,  tb_hits_u,  tb_nevts_u,  label="Phase 1 Point")
-    dropdown_tb_y,  hits_div_tb_y  = make_points_dropdown(tb_idx_y,  tb_hits_y,  tb_nevts_y,  label="Phase 1 Point")
-    dropdown_cup_u, hits_div_cup_u = make_points_dropdown(cup_idx_u, cup_hits_u, cup_nevts_u, title="Select Phase 2 Point", label="Phase 2 Point")
-    dropdown_cup_y, hits_div_cup_y = make_points_dropdown(cup_idx_y, cup_hits_y, cup_nevts_y, title="Select Phase 2 Point", label="Phase 2 Point")
-    dropdown_pretest_u, hits_div_pretest_u = make_points_dropdown(pretest_idx_u, pretest_hits_u, pretest_nevts_u, title="Select Phase 0 Point", label="Phase 0 Point")
-    dropdown_pretest_y, hits_div_pretest_y = make_points_dropdown(pretest_idx_y, pretest_hits_y, pretest_nevts_y, title="Select Phase 0 Point", label="Phase 0 Point")
+    # ---- U dropdowns ----
+    dropdown_u_s3, div_u_s3 = make_points_dropdown(u_s3_idx, u_s3_hits, u_s3_nevts, width=400, title="Select Step 3 Point", label="Step 3 Point")
+    dropdown_u_s4, div_u_s4 = make_points_dropdown(u_s4_idx, u_s4_hits, u_s4_nevts, width=400, title="Select Step 4 Point", label="Step 4 Point")
 
-    btn_file_phase0_U = make_file_download_button("U_Phase0_hits.csv", "U Phase 0 hits list with LEF")
-    btn_file_phase1_U = make_file_download_button("U_Phase1_hits.csv", "U Phase 1 hits list with LEF")
-    btn_file_phase2_U = make_file_download_button("U_Phase2_hits.csv", "U Phase 2 hits list with LEF")
+    # ---- Y dropdowns ----
+    dropdown_y_s0, div_y_s0 = make_points_dropdown(y_s0_idx, y_s0_hits, y_s0_nevts, width=400, title="Select Step 0 Point", label="Step 0 Point")
+    dropdown_y_s1, div_y_s1 = make_points_dropdown(y_s1_idx, y_s1_hits, y_s1_nevts, width=400, title="Select Step 1 Point", label="Step 1 Point")
+    dropdown_y_s2, div_y_s2 = make_points_dropdown(y_s2_idx, y_s2_hits, y_s2_nevts, width=400, title="Select Step 2 Point", label="Step 2 Point")
 
-    btn_file_phase0_Y = make_file_download_button("Y_Phase0_hits.csv", "Y Phase 0 hits list with LEF")    
-    btn_file_phase1_Y = make_file_download_button("Y_Phase1_hits.csv", "Y Phase 1 hits list with LEF")
-    btn_file_phase2_Y = make_file_download_button("Y_Phase2_hits.csv", "Y Phase 2 hits list with LEF")
+    # ---- Download buttons ----
+    btn_u_s3 = make_file_download_button("U_Step3_hits.csv", "U Step 3 hits list with LEF")
+    btn_u_s4 = make_file_download_button("U_Step4_hits.csv", "U Step 4 hits list with LEF")
 
-    cb_u_pts = make_checkbox(tg_u_pts, False)
-    cb_y_pts = make_checkbox(tg_y_pts, False)
+    btn_y_s0 = make_file_download_button("Y_Step0_hits.csv", "Y Step 0 hits list with LEF")
+    btn_y_s1 = make_file_download_button("Y_Step1_hits.csv", "Y Step 1 hits list with LEF")
+    btn_y_s2 = make_file_download_button("Y_Step2_hits.csv", "Y Step 2 hits list with LEF")
 
-    def build_sidebar(cb, btn1, btn2, btn3, dd_tb, div_tb, dd_cup, div_cup, dd_pretest, div_pretest):
-        children = [cb, btn1, btn2, btn3, Spacer(width=400, height=10)]
-        if dd_tb:
-            children += [dd_tb, div_tb]
-        if dd_cup:
-            children += [Spacer(width=400, height=10), dd_cup, div_cup]
-        if dd_pretest:
-            children += [Spacer(width=400, height=10), dd_pretest, div_pretest]
+    # ---- Checkboxes ----
+    tg_u_pts.pop("Step 5 Points", None)
+    cb_u_pts = make_checkbox(tg_u_pts, False, is_U=True)
+    cb_y_pts = make_checkbox(tg_y_pts, False, is_U=False)
 
-        # Add text line to put under the dropdown as a Div
-        children += [Div(text="<b>Note: Phase 0 points list not updated</b>", width=400, height=30, styles={"padding": "6px", "border": "1px solid #cccccc"})]
-        return column(*children)
+    # ---- Sidebars ----
+    sidebar_u = build_sidebar(cb_u_pts, btn_u_s3, btn_u_s4, None,
+                               dropdown_u_s3, div_u_s3,
+                               dropdown_u_s4, div_u_s4,
+                               None, None,
+                               is_Y=False)
 
-    sidebar_u = build_sidebar(cb_u_pts, btn_file_phase0_U, btn_file_phase1_U, btn_file_phase2_U, 
-                              dropdown_pretest_u, hits_div_pretest_u,
-                               dropdown_tb_u, hits_div_tb_u,
-                               dropdown_cup_u, hits_div_cup_u)
-    
-    sidebar_y = build_sidebar(cb_y_pts, btn_file_phase0_Y, btn_file_phase1_Y, btn_file_phase2_Y,
-                               dropdown_pretest_y, hits_div_pretest_y,
-                               dropdown_tb_y, hits_div_tb_y,
-                               dropdown_cup_y, hits_div_cup_y)
+    sidebar_y = build_sidebar(cb_y_pts, btn_y_s0, btn_y_s1, btn_y_s2,
+                               dropdown_y_s0, div_y_s0,
+                               dropdown_y_s1, div_y_s1,
+                               dropdown_y_s2, div_y_s2,
+                               is_Y=True)
 
     output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout U")
     save(row(p_u_pts, sidebar_u))
@@ -1006,19 +1036,21 @@ if __name__ == "__main__":
     save(row(p_y_pts, sidebar_y))
     _inject_favicon("AMS_L0_detector_layout_Y.html", favicon_tag)
 
-    # ---- Main overview panel (no TB points) ----
-    p_u, tg_u, _, _, _, _, _, _, _, _, _ = make_detector_panel(CFG_U, width=850, height=850)
-    p_y, tg_y, _, _, _, _, _, _, _, _, _ = make_detector_panel(CFG_Y, width=850, height=850)
+    # ---- Main overview panel (no points) ----
+    p_u, tg_u, *_ = make_detector_panel(CFG_U, width=850, height=850)
+    p_y, tg_y, *_ = make_detector_panel(CFG_Y, width=850, height=850)
 
-    tg_u.pop("Phase 1 Points"); tg_u.pop("Phase 2 Points"); tg_u.pop("Phase 0 Points")
-    tg_y.pop("Phase 1 Points"); tg_y.pop("Phase 2 Points"); tg_y.pop("Phase 0 Points")
+    for key in ("Step 3 Points", "Step 4 Points", "Step 5 Points"):
+        tg_u.pop(key, None)
+    for key in ("Step 0 Points", "Step 1 Points", "Step 2 Points"):
+        tg_y.pop(key, None)
 
-    cb_u = make_checkbox(tg_u)
-    cb_y = make_checkbox(tg_y)
+    cb_u = make_checkbox(tg_u, is_U=True)
+    cb_y = make_checkbox(tg_y, is_U=False)
 
-    btn_open_U         = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
+    btn_open_U           = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
     btn_open_positions_U = make_file_download_button("U_nominal_positions.csv", "Nominal positions U")
-    btn_open_Y         = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
+    btn_open_Y           = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
     btn_open_positions_Y = make_file_download_button("Y_nominal_positions.csv", "Nominal positions Y")
 
     def centered_under(plot, *widgets):
