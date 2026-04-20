@@ -2,8 +2,8 @@ name: Run displayL0
 
 on:
   push:
-    paths:
-      - 'displayL0.py'
+    branches:
+      - master
 
 jobs:
   run:
