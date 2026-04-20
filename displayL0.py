@@ -154,12 +154,6 @@ def make_detector_panel(cfg, width=850, height=850,
                         stepA_points_file=None,
                         stepB_points_file=None,
                         stepC_points_file=None):
-    """
-    Step slot → name mapping:
-      U layer:  stepA = "Step 3",  stepB = "Step 4",  stepC = "Step 5" (unused)
-      Y layer:  stepA = "Step 0",  stepB = "Step 1",  stepC = "Step 2"
-    Always pass files via the slot whose name matches the desired label.
-    """
 
     N_LADDERS            = cfg["N_LADDERS"]
     CELL_WIDTH           = cfg["CELL_WIDTH"]
