@@ -320,7 +320,7 @@ def make_detector_panel(cfg, width=850, height=850,
     die_source = ColumnDataSource(die_data)
 
     # ---- Save nominal positions CSV ----
-    with open(f"{TITLE[7]}_nominal_positions.csv", "w") as f:
+    with open(f"L0_data/{TITLE[7]}_nominal_positions.csv", "w") as f:
         print(f"Writing nominal positions to {f.name}")
         f.write("Layer,qname,Si detector,LEF,"
                 "Die BL x,Die BL y,Die BR x,Die BR y,Die TR x,Die TR y,Die TL x,Die TL y,"
@@ -346,7 +346,7 @@ def make_detector_panel(cfg, width=850, height=850,
     TB_hits_stepC = []
 
     if stepA_points:
-        hits_file = f"{TITLE[7]}_{stepA_name.replace(' ', '')}_hits.csv"
+        hits_file = f"L0_data/{TITLE[7]}_{stepA_name.replace(' ', '')}_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
             f.write(f"Layer,{stepA_name} point,Hits\n")
@@ -357,7 +357,7 @@ def make_detector_panel(cfg, width=850, height=850,
                 TB_hits_stepA.append([TITLE[7], idx, hits])
 
     if stepB_points:
-        hits_file = f"{TITLE[7]}_{stepB_name.replace(' ', '')}_hits.csv"
+        hits_file = f"L0_data/{TITLE[7]}_{stepB_name.replace(' ', '')}_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
             f.write(f"Layer,{stepB_name} point,Hits\n")
@@ -368,7 +368,7 @@ def make_detector_panel(cfg, width=850, height=850,
                 TB_hits_stepB.append([TITLE[7], idx, hits])
 
     if stepC_points:
-        hits_file = f"{TITLE[7]}_{stepC_name.replace(' ', '')}_hits.csv"
+        hits_file = f"L0_data/{TITLE[7]}_{stepC_name.replace(' ', '')}_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
             f.write(f"Layer,{stepC_name} point,Hits\n")
@@ -973,8 +973,8 @@ if __name__ == "__main__":
      u_s4_idx, u_s4_hits, u_s4_nevts,
      _,        _,          _) = make_detector_panel(
         CFG_U, width=850, height=850,
-        stepA_points_file="Targets_U_Step3_XYAdjusted.csv",
-        stepB_points_file="Targets_U_Step4_XYAdjusted.csv")
+        stepA_points_file="L0_data/Targets_U_Step3_XYAdjusted.csv",
+        stepB_points_file="L0_data/Targets_U_Step4_XYAdjusted.csv")
 
     # ---- Y panel ----
     # stepA = Step 0 (Phase0), stepB = Step 1 (Phase1), stepC = Step 2 (Phase2)
@@ -983,9 +983,9 @@ if __name__ == "__main__":
      y_s1_idx, y_s1_hits, y_s1_nevts,
      y_s2_idx, y_s2_hits, y_s2_nevts) = make_detector_panel(
         CFG_Y, width=850, height=850,
-        stepA_points_file="Targets_Y_Step0_XYAdjusted.csv",
-        stepB_points_file="Targets_Y_Step1_XYAdjusted.csv",
-        stepC_points_file="Targets_Y_Step2_XYAdjusted.csv")
+        stepA_points_file="L0_data/Targets_Y_Step0_XYAdjusted.csv",
+        stepB_points_file="L0_data/Targets_Y_Step1_XYAdjusted.csv",
+        stepC_points_file="L0_data/Targets_Y_Step2_XYAdjusted.csv")
 
     # ---- U dropdowns ----
     dropdown_u_s3, div_u_s3 = make_points_dropdown(u_s3_idx, u_s3_hits, u_s3_nevts, width=400, title="Select Step 3 Point", label="Step 3 Point")
@@ -997,12 +997,12 @@ if __name__ == "__main__":
     dropdown_y_s2, div_y_s2 = make_points_dropdown(y_s2_idx, y_s2_hits, y_s2_nevts, width=400, title="Select Step 2 Point", label="Step 2 Point")
 
     # ---- Download buttons ----
-    btn_u_s3 = make_file_download_button("U_Step3_hits.csv", "U Step 3 hits list with LEF")
-    btn_u_s4 = make_file_download_button("U_Step4_hits.csv", "U Step 4 hits list with LEF")
+    btn_u_s3 = make_file_download_button("L0_data/U_Step3_hits.csv", "U Step 3 hits list with LEF")
+    btn_u_s4 = make_file_download_button("L0_data/U_Step4_hits.csv", "U Step 4 hits list with LEF")
 
-    btn_y_s0 = make_file_download_button("Y_Step0_hits.csv", "Y Step 0 hits list with LEF")
-    btn_y_s1 = make_file_download_button("Y_Step1_hits.csv", "Y Step 1 hits list with LEF")
-    btn_y_s2 = make_file_download_button("Y_Step2_hits.csv", "Y Step 2 hits list with LEF")
+    btn_y_s0 = make_file_download_button("L0_data/Y_Step0_hits.csv", "Y Step 0 hits list with LEF")
+    btn_y_s1 = make_file_download_button("L0_data/Y_Step1_hits.csv", "Y Step 1 hits list with LEF")
+    btn_y_s2 = make_file_download_button("L0_data/Y_Step2_hits.csv", "Y Step 2 hits list with LEF")
 
     # ---- Checkboxes ----
     tg_u_pts.pop("Step 5 Points", None)
@@ -1043,9 +1043,9 @@ if __name__ == "__main__":
     cb_y = make_checkbox(tg_y, is_U=False)
 
     btn_open_U           = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
-    btn_open_positions_U = make_file_download_button("U_nominal_positions.csv", "Nominal positions U")
+    btn_open_positions_U = make_file_download_button("L0_data/U_nominal_positions.csv", "Nominal positions U")
     btn_open_Y           = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
-    btn_open_positions_Y = make_file_download_button("Y_nominal_positions.csv", "Nominal positions Y")
+    btn_open_positions_Y = make_file_download_button("L0_data/Y_nominal_positions.csv", "Nominal positions Y")
 
     def centered_under(plot, *widgets):
         rows = []
