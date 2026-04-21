@@ -894,7 +894,30 @@ def make_checkbox(toggle_groups, line_a=None, line_b=None, line_c=None, _is_inli
 
     lines_idx = labels.index(lines_name) if lines_name in labels else -1
 
-    
+    prev_source = ColumnDataSource(data=dict(prev_steps=[]))
+
+    step_indices = [i for i in [cb1_idx, cb2_idx, cb3_idx] if i >= 0]
+
+    mutex_callback = CustomJS(
+        args=dict(cb=cb, step_indices=step_indices, prev=prev_source),
+        code="""
+        const active = cb.active.slice();
+        const active_steps = step_indices.filter(i => active.includes(i));
+
+        if (active_steps.length <= 1) {
+            prev.data = {prev_steps: active_steps.slice()};
+            return;
+        }
+
+        const prev_steps = prev.data['prev_steps'];
+        const just_added = active_steps.filter(i => !prev_steps.includes(i));
+        const keep = just_added.length > 0 ? just_added[0] : active_steps[0];
+
+        cb.active = active.filter(i => !step_indices.includes(i) || i === keep);
+        prev.data = {prev_steps: [keep]};
+        """
+    )
+    cb.js_on_change("active", mutex_callback)
 
     cb_callback = CustomJS(
         args=dict(
