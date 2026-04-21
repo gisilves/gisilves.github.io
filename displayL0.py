@@ -982,7 +982,7 @@ def make_file_download_button(filename, title, type="warning", _width=400):
 
 def make_open_page_button(link, title, _width = 400):
     btn = Button(label=f"Go to {title}", button_type="default", width=_width)
-    btn.js_on_click(CustomJS(args=dict(file=link), code="window.open(file, '_self');"))
+    btn.js_on_click(CustomJS(args=dict(file=link), code="window.location.replace(file);"))
     return btn
 
 
