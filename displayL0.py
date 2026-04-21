@@ -916,8 +916,8 @@ def make_checkbox(toggle_groups, _is_inline=True, is_U=False):
     return cb
 
 
-def make_file_download_button(filename, title):
-    btn = Button(label=f"Download {title}", button_type="warning", width=400)
+def make_file_download_button(filename, title, type="warning", _width=400):
+    btn = Button(label=f"Download {title}", button_type= type, width=_width)
     btn.js_on_click(CustomJS(args=dict(file=filename), code="""
         const a = document.createElement('a');
         a.href = file; a.download = file;
@@ -927,7 +927,7 @@ def make_file_download_button(filename, title):
 
 
 def make_open_page_button(link, title):
-    btn = Button(label=f"Open {title}", button_type="warning", width=400)
+    btn = Button(label=f"Open {title}", button_type="default", width=300)
     btn.js_on_click(CustomJS(args=dict(file=link), code="window.open(file, '_blank');"))
     return btn
 
@@ -942,11 +942,11 @@ def _inject_favicon(html_file, favicon_tag):
         f.seek(0); f.writelines(content); f.truncate()
 
 
-def build_sidebar(cb, btn1, btn2, btn3, dd1, div1, dd2, div2, dd3, div3, is_Y=False):
+def build_sidebar(cb, btn1, btn2, btn3, btn4, btn5, btn6, dd1, div1, dd2, div2, dd3, div3, is_Y=False):
     if is_Y:
-        children = [cb, btn1, btn2, btn3, Spacer(width=400, height=10)]
+        children = [cb, btn1, btn2, btn3, btn4, btn5, btn6, Spacer(width=400, height=10)]
     else:
-        children = [cb, btn1, btn2, Spacer(width=400, height=10)]
+        children = [cb, btn1, btn2, btn4, btn5, Spacer(width=400, height=10)]
 
     if dd1:
         children += [dd1, div1]
@@ -997,9 +997,14 @@ if __name__ == "__main__":
     dropdown_y_s2, div_y_s2 = make_points_dropdown(y_s2_idx, y_s2_hits, y_s2_nevts, width=400, title="Select Step 2 Point", label="Step 2 Point")
 
     # ---- Download buttons ----
+    btn_u_list3 = make_file_download_button("L0_data/Targets_U_Step3_XYAdjusted.csv", "U Step 3 points list", type="primary")
+    btn_u_list4 = make_file_download_button("L0_data/Targets_U_Step4_XYAdjusted.csv", "U Step 4 points list", type="primary")
     btn_u_s3 = make_file_download_button("L0_data/U_Step3_hits.csv", "U Step 3 hits list with LEF")
     btn_u_s4 = make_file_download_button("L0_data/U_Step4_hits.csv", "U Step 4 hits list with LEF")
 
+    btn_y_list0 = make_file_download_button("L0_data/Targets_Y_Step0_XYAdjusted.csv", "Y Step 0 points list", type="primary")
+    btn_y_list1 = make_file_download_button("L0_data/Targets_Y_Step1_XYAdjusted.csv", "Y Step 1 points list", type="primary")
+    btn_y_list2 = make_file_download_button("L0_data/Targets_Y_Step2_XYAdjusted.csv", "Y Step 2 points list", type="primary")
     btn_y_s0 = make_file_download_button("L0_data/Y_Step0_hits.csv", "Y Step 0 hits list with LEF")
     btn_y_s1 = make_file_download_button("L0_data/Y_Step1_hits.csv", "Y Step 1 hits list with LEF")
     btn_y_s2 = make_file_download_button("L0_data/Y_Step2_hits.csv", "Y Step 2 hits list with LEF")
@@ -1010,18 +1015,23 @@ if __name__ == "__main__":
     cb_y_pts = make_checkbox(tg_y_pts, False, is_U=False)
 
     # ---- Sidebars ----
-    sidebar_u = build_sidebar(cb_u_pts, btn_u_s3, btn_u_s4, None,
+    sidebar_u = build_sidebar(cb_u_pts, 
+                               btn_u_list3, btn_u_list4, None,
+                               btn_u_s3, btn_u_s4, None,
                                dropdown_u_s3, div_u_s3,
                                dropdown_u_s4, div_u_s4,
                                None, None,
                                is_Y=False)
 
-    sidebar_y = build_sidebar(cb_y_pts, btn_y_s0, btn_y_s1, btn_y_s2,
+    sidebar_y = build_sidebar(cb_y_pts, 
+                               btn_y_list0, btn_y_list1, btn_y_list2,
+                               btn_y_s0, btn_y_s1, btn_y_s2,
                                dropdown_y_s0, div_y_s0,
                                dropdown_y_s1, div_y_s1,
                                dropdown_y_s2, div_y_s2,
                                is_Y=True)
 
+    # ---- Output files ----
     output_file("AMS_L0_detector_layout_U.html", title="AMS-L0 Detector Layout U")
     save(row(p_u_pts, sidebar_u))
     _inject_favicon("AMS_L0_detector_layout_U.html", favicon_tag)
@@ -1043,9 +1053,9 @@ if __name__ == "__main__":
     cb_y = make_checkbox(tg_y, is_U=False)
 
     btn_open_U           = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
-    btn_open_positions_U = make_file_download_button("L0_data/U_nominal_positions.csv", "Nominal positions U")
+    btn_open_positions_U = make_file_download_button("L0_data/U_nominal_positions.csv", "Nominal positions U", type="primary")
     btn_open_Y           = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
-    btn_open_positions_Y = make_file_download_button("L0_data/Y_nominal_positions.csv", "Nominal positions Y")
+    btn_open_positions_Y = make_file_download_button("L0_data/Y_nominal_positions.csv", "Nominal positions Y", type="primary")
 
     def centered_under(plot, *widgets):
         rows = []
