@@ -895,17 +895,20 @@ def make_checkbox(toggle_groups, line_a=None, line_b=None, line_c=None, _is_inli
     lines_idx = labels.index(lines_name) if lines_name in labels else -1
 
     prev_source = ColumnDataSource(data=dict(prev_steps=[]))
-
     step_indices = [i for i in [cb1_idx, cb2_idx, cb3_idx] if i >= 0]
 
+    # Custom JS callback to make sure that only one step is active at a time
     mutex_callback = CustomJS(
-        args=dict(cb=cb, step_indices=step_indices, prev=prev_source),
+        args=dict(cb=cb, step_indices=step_indices, prev=prev_source, lines_idx=lines_idx),
         code="""
         const active = cb.active.slice();
         const active_steps = step_indices.filter(i => active.includes(i));
 
         if (active_steps.length <= 1) {
             prev.data = {prev_steps: active_steps.slice()};
+            if (active_steps.length === 0) {
+                cb.active = active.filter(i => i !== lines_idx);
+            }
             return;
         }
 
@@ -919,6 +922,7 @@ def make_checkbox(toggle_groups, line_a=None, line_b=None, line_c=None, _is_inli
     )
     cb.js_on_change("active", mutex_callback)
 
+    # Custom JS callback to activate the correct renderers
     cb_callback = CustomJS(
         args=dict(
             cb=cb, groups=all_renderers,
@@ -976,8 +980,8 @@ def make_file_download_button(filename, title, type="warning", _width=400):
     return btn
 
 
-def make_open_page_button(link, title):
-    btn = Button(label=f"Open {title}", button_type="default", width=300)
+def make_open_page_button(link, title, _width = 400):
+    btn = Button(label=f"Open {title}", button_type="default", width=_width)
     btn.js_on_click(CustomJS(args=dict(file=link), code="window.open(file, '_blank');"))
     return btn
 
@@ -992,7 +996,7 @@ def _inject_favicon(html_file, favicon_tag):
         f.seek(0); f.writelines(content); f.truncate()
 
 
-def build_sidebar(cb, btn1, btn2, btn3, btn4, btn5, btn6, dd1, div1, dd2, div2, dd3, div3, is_Y=False):
+def build_sidebar(cb, btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, dd1, div1, dd2, div2, dd3, div3, is_Y=False):
     if is_Y:
         children = [cb, btn1, btn2, btn3, btn4, btn5, btn6, Spacer(width=400, height=10)]
     else:
@@ -1004,6 +1008,9 @@ def build_sidebar(cb, btn1, btn2, btn3, btn4, btn5, btn6, dd1, div1, dd2, div2, 
         children += [Spacer(width=400, height=10), dd2, div2]
     if dd3:
         children += [Spacer(width=400, height=10), dd3, div3]
+
+    if btn7 and btn8:
+        children += [Spacer(width=400, height=10), btn7, btn8]
 
     return column(*children)
 
@@ -1066,10 +1073,23 @@ if __name__ == "__main__":
     cb_u_pts = make_checkbox(tg_u_pts, line_a=linesA_u, line_b=linesB_u, line_c=linesC_u, _is_inline=False, is_U=True)
     cb_y_pts = make_checkbox(tg_y_pts, line_a=linesA_y, line_b=linesB_y, line_c=linesC_y, _is_inline=False, is_U=False)
     
+
+    # ---- Buttons ----
+
+    btn_open_home        = make_open_page_button("AMS_L0_detector_layout.html", "AMS-L0 Detector Layout")
+    btn_open_home_2      = make_open_page_button("AMS_L0_detector_layout.html", "AMS-L0 Detector Layout")
+    btn_open_U           = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
+    btn_open_U_2         = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
+    btn_open_positions_U = make_file_download_button("L0_data/U_nominal_positions.csv", "Nominal positions U", type="primary")
+    btn_open_Y           = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
+    btn_open_Y_2         = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
+    btn_open_positions_Y = make_file_download_button("L0_data/Y_nominal_positions.csv", "Nominal positions Y", type="primary")
+
     # ---- Sidebars ----
     sidebar_u = build_sidebar(cb_u_pts, 
                                btn_u_list3, btn_u_list4, None,
                                btn_u_s3, btn_u_s4, None,
+                               btn_open_home, btn_open_Y_2,
                                dropdown_u_s3, div_u_s3,
                                dropdown_u_s4, div_u_s4,
                                None, None,
@@ -1078,6 +1098,7 @@ if __name__ == "__main__":
     sidebar_y = build_sidebar(cb_y_pts, 
                                btn_y_list0, btn_y_list1, btn_y_list2,
                                btn_y_s0, btn_y_s1, btn_y_s2,
+                               btn_open_home_2, btn_open_U_2,
                                dropdown_y_s0, div_y_s0,
                                dropdown_y_s1, div_y_s1,
                                dropdown_y_s2, div_y_s2,
@@ -1096,18 +1117,13 @@ if __name__ == "__main__":
     p_u, tg_u, *_ = make_detector_panel(CFG_U, width=850, height=850)
     p_y, tg_y, *_ = make_detector_panel(CFG_Y, width=850, height=850)
 
-    for key in ("Step 3 Points", "Step 4 Points", "Step 5 Points"):
+    for key in ("Step 3 Points", "Step 4 Points", "Step 5 Points", "Lines"):
         tg_u.pop(key, None)
-    for key in ("Step 0 Points", "Step 1 Points", "Step 2 Points"):
+    for key in ("Step 0 Points", "Step 1 Points", "Step 2 Points", "Lines"):
         tg_y.pop(key, None)
 
     cb_u = make_checkbox(tg_u, is_U=True)
     cb_y = make_checkbox(tg_y, is_U=False)
-
-    btn_open_U           = make_open_page_button("AMS_L0_detector_layout_U.html", "AMS-L0 Detector Layout U")
-    btn_open_positions_U = make_file_download_button("L0_data/U_nominal_positions.csv", "Nominal positions U", type="primary")
-    btn_open_Y           = make_open_page_button("AMS_L0_detector_layout_Y.html", "AMS-L0 Detector Layout Y")
-    btn_open_positions_Y = make_file_download_button("L0_data/Y_nominal_positions.csv", "Nominal positions Y", type="primary")
 
     def centered_under(plot, *widgets):
         rows = []
