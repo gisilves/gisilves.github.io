@@ -8,7 +8,7 @@ from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, HoverTool, CustomJS, Label, Arrow, OpenHead, CheckboxGroup, Button, Div, Select, Spacer
 from bokeh.layouts import row, column
 from bokeh.io import output_file, save
-
+import time
 # ---------------------------------------------------------------------------
 # Detector configurations
 # ---------------------------------------------------------------------------
@@ -236,10 +236,12 @@ def make_detector_panel(cfg, width=850, height=850,
         stepA_name = "Step 3"
         stepB_name = "Step 4"
         stepC_name = "Step 5"   # unused for U; kept for structural symmetry
+        lines_name = "Lines"
     else:
         stepA_name = "Step 0"
         stepB_name = "Step 1"
         stepC_name = "Step 2"
+        lines_name = "Lines"
 
     # ---- Silicon die data ----
     die_data = {k: [] for k in [
@@ -730,7 +732,7 @@ def make_detector_panel(cfg, width=850, height=850,
     def _make_points_overlay(pts_list, hits_list_raw, fill_color, hover_label):
         """Returns (renderers_list, idx_list, hits_str_list, nevts_list)."""
         if not pts_list:
-            return [], [], [], []
+            return [], [], [], [], []
 
         px_list    = [r[0] for r in pts_list]
         py_list    = [r[1] for r in pts_list]
@@ -750,6 +752,11 @@ def make_detector_panel(cfg, width=850, height=850,
             nevts=nevts_list,
         ))
 
+        r_lines = p.line(x="x", y="y", source=src,
+                         line_color="#E13232", line_width=3,
+                         line_alpha=0.8,
+                         visible=False)
+        
         r_scatter = p.scatter(x="x", y="y", source=src,
                               marker="circle", size=8,
                               fill_color=fill_color, fill_alpha=0.9,
@@ -765,7 +772,7 @@ def make_detector_panel(cfg, width=850, height=850,
                          text_color="#000000",
                          text_align="left", text_baseline="bottom",
                          x_offset=5, y_offset=5, visible=False)
-
+        
         zoom_cb = CustomJS(args=dict(
             x_range=p.x_range, small=r_small, large=r_large,
             full_width=full_x_end - full_x_start,
@@ -784,16 +791,16 @@ def make_detector_panel(cfg, width=850, height=850,
             ("NEVTs",     "@nevts"),
         ]))
 
-        return [r_scatter, r_small, r_large], idx_list, hits_str_list, nevts_list
+        return [r_scatter, r_small, r_large], r_lines, idx_list, hits_str_list, nevts_list
 
     # ---- Points overlays ----
-    stepA_rend, stepA_idx, stepA_hits_str, stepA_nevts = \
+    stepA_rend, linesA_rend, stepA_idx, stepA_hits_str, stepA_nevts = \
         _make_points_overlay(stepA_points, TB_hits_stepA, "#0004ff", stepA_name + " Point")
 
-    stepB_rend, stepB_idx, stepB_hits_str, stepB_nevts = \
+    stepB_rend, linesB_rend, stepB_idx, stepB_hits_str, stepB_nevts = \
         _make_points_overlay(stepB_points, TB_hits_stepB, "#ffff00", stepB_name + " Point")
 
-    stepC_rend, stepC_idx, stepC_hits_str, stepC_nevts = \
+    stepC_rend, linesC_rend, stepC_idx, stepC_hits_str, stepC_nevts = \
         _make_points_overlay(stepC_points, TB_hits_stepC, "#ff5500", stepC_name + " Point")
 
     # ---- Toggle groups ----
@@ -805,9 +812,11 @@ def make_detector_panel(cfg, width=850, height=850,
         stepA_name + " Points": stepA_rend,
         stepB_name + " Points": stepB_rend,
         stepC_name + " Points": stepC_rend,
+        lines_name : []
     }
 
     return (p, toggle_groups,
+            linesA_rend, linesB_rend, linesC_rend,
             stepA_idx, stepA_hits_str, stepA_nevts,
             stepB_idx, stepB_hits_str, stepB_nevts,
             stepC_idx, stepC_hits_str, stepC_nevts)
@@ -846,8 +855,7 @@ def make_points_dropdown(idx_list, hits_list, nevts_list, width, title, label):
     select.js_on_change("value", cb)
     return select, hits_div
 
-
-def make_checkbox(toggle_groups, _is_inline=True, is_U=False):
+def make_checkbox(toggle_groups, line_a=None, line_b=None, line_c=None, _is_inline=True, is_U=False):
     labels        = list(toggle_groups.keys())
     all_renderers = list(toggle_groups.values())
 
@@ -855,12 +863,14 @@ def make_checkbox(toggle_groups, _is_inline=True, is_U=False):
         stepA_name = "Step 3"
         stepB_name = "Step 4"
         stepC_name = "Step 5"
+        lines_name = "Lines"
     else:
         stepA_name = "Step 0"
         stepB_name = "Step 1"
         stepC_name = "Step 2"
+        lines_name = "Lines"
 
-    hidden = {stepA_name + " Points", stepB_name + " Points", stepC_name + " Points"}
+    hidden = {stepA_name + " Points", stepB_name + " Points", stepC_name + " Points", lines_name}
     cb = CheckboxGroup(
         labels=labels,
         active=[i for i in range(len(labels)) if labels[i] not in hidden],
@@ -882,31 +892,49 @@ def make_checkbox(toggle_groups, _is_inline=True, is_U=False):
     cb2_idx, cb2_scatter, cb2_small, cb2_large = _slot(stepB_name)
     cb3_idx, cb3_scatter, cb3_small, cb3_large = _slot(stepC_name)
 
+    lines_idx = labels.index(lines_name) if lines_name in labels else -1
+
+    
+
     cb_callback = CustomJS(
         args=dict(
             cb=cb, groups=all_renderers,
             cb1_idx=cb1_idx,
             cb1_scatter=cb1_scatter, cb1_small=cb1_small, cb1_large=cb1_large,
+            cb1_line=line_a,
             cb2_idx=cb2_idx,
             cb2_scatter=cb2_scatter, cb2_small=cb2_small, cb2_large=cb2_large,
+            cb2_line=line_b,
             cb3_idx=cb3_idx,
             cb3_scatter=cb3_scatter, cb3_small=cb3_small, cb3_large=cb3_large,
+            cb3_line=line_c ,
+            lines_idx=lines_idx,
         ),
         code="""
         for (let g = 0; g < groups.length; g++) {
             const visible = cb.active.includes(g);
+            const lines_on = cb.active.includes(lines_idx);
+
             if (g === cb1_idx) {
                 if (cb1_scatter) cb1_scatter.visible = visible;
                 if (cb1_small)   cb1_small.visible   = visible;
                 if (cb1_large)   cb1_large.visible   = false;
+                if (cb1_line)    cb1_line.visible     = visible && lines_on;
             } else if (g === cb2_idx) {
                 if (cb2_scatter) cb2_scatter.visible = visible;
                 if (cb2_small)   cb2_small.visible   = visible;
                 if (cb2_large)   cb2_large.visible   = false;
+                if (cb2_line)    cb2_line.visible     = visible && lines_on;
             } else if (g === cb3_idx) {
                 if (cb3_scatter) cb3_scatter.visible = visible;
                 if (cb3_small)   cb3_small.visible   = visible;
                 if (cb3_large)   cb3_large.visible   = false;
+                if (cb3_line)    cb3_line.visible     = visible && lines_on;
+            } else if (g === lines_idx) {
+                // Lines toggled directly — recheck each step's active state
+                if (cb1_line) cb1_line.visible = visible && cb.active.includes(cb1_idx);
+                if (cb2_line) cb2_line.visible = visible && cb.active.includes(cb2_idx);
+                if (cb3_line) cb3_line.visible = visible && cb.active.includes(cb3_idx);
             } else {
                 for (const r of groups[g]) { r.visible = visible; }
             }
@@ -914,7 +942,6 @@ def make_checkbox(toggle_groups, _is_inline=True, is_U=False):
     """)
     cb.js_on_change("active", cb_callback)
     return cb
-
 
 def make_file_download_button(filename, title, type="warning", _width=400):
     btn = Button(label=f"Download {title}", button_type= type, width=_width)
@@ -969,6 +996,7 @@ if __name__ == "__main__":
     # ---- U panel ----
     # stepA = Step 3 (Phase1), stepB = Step 4 (Phase2), stepC unused
     (p_u_pts, tg_u_pts,
+     linesA_u, linesB_u,  linesC_u,
      u_s3_idx, u_s3_hits, u_s3_nevts,
      u_s4_idx, u_s4_hits, u_s4_nevts,
      _,        _,          _) = make_detector_panel(
@@ -979,6 +1007,7 @@ if __name__ == "__main__":
     # ---- Y panel ----
     # stepA = Step 0 (Phase0), stepB = Step 1 (Phase1), stepC = Step 2 (Phase2)
     (p_y_pts, tg_y_pts,
+     linesA_y, linesB_y,  linesC_y,
      y_s0_idx, y_s0_hits, y_s0_nevts,
      y_s1_idx, y_s1_hits, y_s1_nevts,
      y_s2_idx, y_s2_hits, y_s2_nevts) = make_detector_panel(
@@ -1011,9 +1040,9 @@ if __name__ == "__main__":
 
     # ---- Checkboxes ----
     tg_u_pts.pop("Step 5 Points", None)
-    cb_u_pts = make_checkbox(tg_u_pts, False, is_U=True)
-    cb_y_pts = make_checkbox(tg_y_pts, False, is_U=False)
-
+    cb_u_pts = make_checkbox(tg_u_pts, line_a=linesA_u, line_b=linesB_u, line_c=linesC_u, _is_inline=False, is_U=True)
+    cb_y_pts = make_checkbox(tg_y_pts, line_a=linesA_y, line_b=linesB_y, line_c=linesC_y, _is_inline=False, is_U=False)
+    
     # ---- Sidebars ----
     sidebar_u = build_sidebar(cb_u_pts, 
                                btn_u_list3, btn_u_list4, None,
