@@ -1,0 +1,19 @@
+Naming conventions for robotic arm point data
+
+
+----------------- GG --------------------------------------------------------------------------------- LUCA ------------------------------
+
+1.  Targets_Y_Step0_XYAdjusted.csv -------------------------------------------------------  "Derived from SimpleTargets_F_XYAdjusted.csv"
+2.  Targets_Y_Step1_XYAdjusted.csv -------------------------------------------------------  SimpleTargets_F_XYAdjusted.csv
+3.  Targets_Y_Step2_XYAdjusted.csv -------------------------------------------------------  CupolaTargets_F_XYAdjusted.csv
+4.  Targets_U_Step3_XYAdjusted.csv -------------------------------------------------------  SimpleTargets_R_XYAdjusted.csv
+5.  Targets_U_Step4_XYAdjusted.csv -------------------------------------------------------  CupolaTargets_F_XYAdjusted.csv
+
+
+To each files, add the following column with nevents:
+
+1.  Targets_Y_Step0_XYAdjusted.csv ------  100000
+2.  Targets_Y_Step1_XYAdjusted.csv ------  20000
+3.  Targets_Y_Step2_XYAdjusted.csv ------  180000
+4.  Targets_U_Step3_XYAdjusted.csv ------  20000
+5.  Targets_U_Step4_XYAdjusted.csv ------  180000
