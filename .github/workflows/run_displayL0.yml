@@ -21,6 +21,10 @@ jobs:
       - name: Install dependencies
         run: pip install bokeh numpy
 
+      - name: Run generate_step0_from_step1.py
+        working-directory: L0_data
+        run: python generate_step0_from_step1.py
+
       - name: Run displayL0.py
         run: python displayL0.py
 
