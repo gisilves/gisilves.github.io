@@ -351,33 +351,33 @@ def make_detector_panel(cfg, width=850, height=850,
         hits_file = f"L0_data/{TITLE[7]}_{stepA_name.replace(' ', '')}_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
-            f.write(f"Layer,{stepA_name} point,Hits\n")
+            f.write(f"Layer,{stepA_name} point,Hits,NEVTs\n")
             for idx, (ptx, pty, nevts) in enumerate(stepA_points, start=1):
                 hits = get_tiles_in_radius(ptx, pty, 10, die_source)
                 hits_str = _safe_hits_str(hits)
-                f.write(f"{TITLE[7]},{idx},{hits_str}\n")
+                f.write(f"{TITLE[7]},{idx},{hits_str},{int(nevts)}\n")
                 TB_hits_stepA.append([TITLE[7], idx, hits])
 
     if stepB_points:
         hits_file = f"L0_data/{TITLE[7]}_{stepB_name.replace(' ', '')}_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
-            f.write(f"Layer,{stepB_name} point,Hits\n")
+            f.write(f"Layer,{stepB_name} point,Hits,NEVTs\n")
             for idx, (ptx, pty, nevts) in enumerate(stepB_points, start=1):
                 hits = get_tiles_in_radius(ptx, pty, 10, die_source)
                 hits_str = _safe_hits_str(hits)
-                f.write(f"{TITLE[7]},{idx},{hits_str}\n")
+                f.write(f"{TITLE[7]},{idx},{hits_str},{int(nevts)}\n")
                 TB_hits_stepB.append([TITLE[7], idx, hits])
 
     if stepC_points:
         hits_file = f"L0_data/{TITLE[7]}_{stepC_name.replace(' ', '')}_hits.csv"
         print(f"Writing hits to {hits_file}")
         with open(hits_file, "w") as f:
-            f.write(f"Layer,{stepC_name} point,Hits\n")
+            f.write(f"Layer,{stepC_name} point,Hits,NEVTs\n")
             for idx, (ptx, pty, nevts) in enumerate(stepC_points, start=1):
                 hits = get_tiles_in_radius(ptx, pty, 10, die_source)
                 hits_str = _safe_hits_str(hits)
-                f.write(f"{TITLE[7]},{idx},{hits_str}\n")
+                f.write(f"{TITLE[7]},{idx},{hits_str},{int(nevts)}\n")
                 TB_hits_stepC.append([TITLE[7], idx, hits])
 
     # ---- Active area ----
