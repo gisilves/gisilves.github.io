@@ -94,7 +94,7 @@ def import_csv(filename):
 def _safe_hits_str(hits):
     """Convert a hits value (set or 'NO LEF' string) to a clean comma-separated string."""
     if isinstance(hits, set):
-        cleaned = ", ".join(sorted(h for h in hits if h))
+        cleaned = ",".join(sorted(h for h in hits if h))
         return cleaned if cleaned else "NO LEF"
     return hits if hits else "NO LEF"
 
