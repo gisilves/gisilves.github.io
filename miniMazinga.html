@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>miniMazinga Viewer</title>
+  <style>
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #0f172a;
+      background-image: url("background.jpg");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      color: #f8fafc;
+      margin: 0;
+      padding: 12px;
+    }
+
+    h1 {
+      font-size: 16px;
+      margin: 0 0 4px 4px;
+      color: #f1f5f9;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    h2 {
+      font-size: 12px;
+      margin: 12px 0 6px 4px;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    }
+
+    nav {
+      margin: 0 0 6px 4px;
+      font-size: 12px;
+    }
+
+    nav a {
+      color: #38bdf8;
+      margin-right: 12px;
+      text-decoration: none;
+    }
+
+    nav a.active {
+      font-weight: 700;
+      text-decoration: underline;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 6px;
+      max-width: 800px;
+    }
+
+    .grid.coinc {
+      grid-template-rows: repeat(5, 1fr);
+    }
+
+    .grid.row {
+      grid-template-rows: 1fr;
+    }
+
+    .wrap {
+      position: relative;
+      max-width: 800px;
+      margin-top: 8px;
+    }
+
+    .spacer {
+      height: 500px;
+    }
+
+    .arrows {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .arrows line {
+      stroke: #475569;
+      stroke-width: 2.5;
+      opacity: 0.6;
+    }
+
+    .arrows line.on {
+      stroke: #ef4444;
+      stroke-width: 2.5;
+      opacity: 1;
+      filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.9));
+    }
+
+    .cell {
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 6px;
+      min-width: 0;
+      text-align: center;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+
+    .coinc-cell {
+      padding: 4px;
+    }
+
+    .cell h3 {
+      margin: 0 0 2px 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .coinc-cell h3 {
+      font-size: 10px;
+      margin-bottom: 2px;
+    }
+
+    .angle {
+      font-size: 9px;
+      color: #94a3b8;
+    }
+
+    .value {
+      font-size: 20px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #38bdf8;
+    }
+
+    .value.sum {
+      color: #34d399;
+    }
+
+    .led {
+      width: 24px;
+      height: 24px;
+      margin: 2px auto;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #450a0a, #180202);
+      border: 1.5px solid #0f172a;
+      box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.8);
+      transition:
+        background 0.08s linear,
+        box-shadow 0.08s linear;
+    }
+
+    .led.led-small {
+      width: 16px;
+      height: 16px;
+      margin: 2px auto;
+    }
+
+    .led.on {
+      background: radial-gradient(circle at 35% 30%, #fca5a5, #ef4444);
+      border-color: #991b1b;
+      box-shadow:
+        0 0 10px 2px rgba(239, 68, 68, 0.9),
+        inset 0 0 4px rgba(255, 255, 255, 0.4);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      margin: 12px 0;
+      flex-wrap: wrap;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(4px);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      max-width: 800px;
+      font-size: 11px;
+      color: #cbd5e1;
+    }
+
+    button,
+    .filebtn {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid #475569;
+      background: #334155;
+      color: #f8fafc;
+      cursor: pointer;
+    }
+
+    button:hover,
+    .filebtn:hover {
+      background: #475569;
+    }
+
+    #startBtn {
+      background: #15803d;
+      border-color: #166534;
+    }
+
+    #startBtn:hover {
+      background: #16a34a;
+    }
+
+    #stopBtn {
+      background: #b91c1c;
+      border-color: #991b1b;
+    }
+
+    #stopBtn:hover {
+      background: #dc2626;
+    }
+
+    #resetBtn {
+      background: #475569;
+      border-color: #334155;
+    }
+
+    #resetBtn:hover {
+      background: #64748b;
+    }
+
+    #exportBtn {
+      background: #1d4ed8;
+      border-color: #1e40af;
+    }
+
+    #exportBtn:hover {
+      background: #2563eb;
+    }
+
+    input[type="number"] {
+      width: 64px;
+      font-size: 11px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid #475569;
+      background: #1e293b;
+      color: #f8fafc;
+    }
+
+    .status {
+      font-size: 11px;
+      color: #cbd5e1;
+      margin-left: 4px;
+    }
+
+    .timer {
+      font-size: 16px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #cbd5e1;
+    }
+
+    .running {
+      color: #4ade80;
+    }
+
+    body.dragging {
+      outline: 3px dashed #38bdf8;
+      outline-offset: -8px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>miniMazinga Viewer</h1>
+  <nav>
+    <a href="#data" id="navData">Data</a>
+    <a href="#leds" id="navLeds">Status LEDs</a>
+  </nav>
+
+  <section id="view-data">
+    <h2>Coincidence: top (T) AND bottom (B)</h2>
+    <div class="grid coinc" id="coincGrid"></div>
+
+    <div class="controls">
+      <button id="startBtn">Start accumulation</button>
+      <button id="stopBtn">Stop accumulation</button>
+      <button id="resetBtn">Reset accumulation</button>
+      <button id="exportBtn">Export to TXT</button>
+      <span class="status" id="status">stopped</span>
+      <span class="timer" id="timer">00:00.0</span>
+    </div>
+
+    <h2>Accumulated sum (<span id="countLabel">0</span> events)</h2>
+    <div class="grid" id="sumGrid"></div>
+
+    <h2>Accumulated coincidences (T &amp; B)</h2>
+    <div class="grid coinc" id="coincSumGrid"></div>
+  </section>
+
+  <section id="view-leds" hidden>
+    <div class="wrap" id="wrap">
+      <div class="grid row" id="ledTop"></div>
+      <div class="spacer"></div>
+      <div class="grid row" id="ledBottom"></div>
+      <svg class="arrows" id="arrows" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="head-off" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#475569" />
+          </marker>
+          <marker id="head-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#ef4444" />
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  </section>
+
+  <script>
+    // ---------------------------------------------------------------------
+    // miniMazinga - client-side port of mazinga_webpage_MC.py.
+    // Each CSV line is a 10-bit mask: first 5 bits top (T), last 5 bits bottom (B).
+    // Events are replayed with Poisson arrivals (exponential waiting times).
+    // ---------------------------------------------------------------------
+    const N_TOP = 5,
+      N_BOTTOM = 5,
+      N_CH = N_TOP + N_BOTTOM;
+    const CH = Array.from({ length: N_CH }, (_, i) => i);
+    const TOP = CH.slice(0, N_TOP);
+    const BOT = CH.slice(N_TOP);
+    const $ = (id) => document.getElementById(id);
+
+    // ---- state ----------------------------------------------------------
+    let masks = []; // ints, bit (9 - c) is channel c
+    let idx = 0; // next mask to replay
+    let replayFinished = false;
+    let replayTimer = null;
+    let nextTime = 0;
+    const above = new Array(N_CH).fill(false);
+    let sums, coinc, accumCount;
+    let accumulating = false,
+      startT = null,
+      elapsedBase = 0;
+
+    function resetCounters() {
+      sums = new Array(N_CH).fill(0);
+      coinc = {};
+      for (const t of TOP) for (const b of BOT) coinc[t + "-" + b] = 0;
+      accumCount = 0;
+    }
+    resetCounters();
+
+    // ---- CSV parsing ----
+    function parseMask(line) {
+      line = line.trim();
+      if (!line) return null;
+      const cands = [
+        Array.from(line)
+          .filter((ch) => !",\t ;".includes(ch))
+          .join(""),
+        line.split(",")[0].trim(),
+      ];
+      for (const c of cands) {
+        if (c.length === N_CH && /^[01]+$/.test(c)) return parseInt(c, 2);
+      }
+      return null;
+    }
+
+    function loadText(text, name) {
+      const out = [];
+      for (const line of text.split(/\r?\n/)) {
+        const m = parseMask(line);
+        if (m !== null) out.push(m);
+      }
+      if (!out.length) {
+        alert("No valid masks found in " + name);
+        return;
+      }
+      masks = out;
+      startReplay();
+    }
+
+    async function fetchCsv(name) {
+      try {
+        const r = await fetch(name, { cache: "no-store" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        loadText(await r.text(), name);
+      } catch (e) {
+        alert(
+          "Could not load " + name + ":\n" + e.message
+        );
+      }
+    }
+
+    // ---- event processing ----------------------------------------------
+    function processEvent(mask) {
+      let touched = false;
+      for (const c of CH) {
+        const on = ((mask >> (N_CH - 1 - c)) & 1) === 1;
+        above[c] = on;
+        if (accumulating && on) {
+          sums[c]++;
+          touched = true;
+        }
+      }
+      if (accumulating) {
+        if (touched) accumCount++;
+        for (const t of TOP)
+          for (const b of BOT) if (above[t] && above[b]) coinc[t + "-" + b]++;
+      }
+    }
+
+    // ---- replay scheduler ----------------------------------------------
+    const expDelay = (rate) => (-Math.log(1 - Math.random()) / rate) * 1000;
+
+    function tick() {
+      replayTimer = null;
+      if (!masks.length) return;
+      const rate = 5;
+      const now = performance.now();
+      const cap = 5000;
+      let n = 0;
+      while (now >= nextTime && n < cap) {
+        processEvent(masks[idx]);
+        n++;
+        idx++;
+        if (idx >= masks.length) idx = 0;
+        nextTime += expDelay(rate);
+      }
+      if (now - nextTime > 1000) nextTime = now; // do not burst after a stall
+      replayTimer = setTimeout(tick, 5);
+    }
+
+    function startReplay() {
+      if (replayTimer) clearTimeout(replayTimer);
+      idx = 0;
+      replayFinished = false;
+      nextTime = performance.now();
+      tick();
+    }
+
+    // ---- accumulation control ------------------------------------------
+    const now_s = () => performance.now() / 1000;
+    function elapsedNow() {
+      return accumulating ? elapsedBase + (now_s() - startT) : elapsedBase;
+    }
+    function startAccumulation() {
+      if (!accumulating) {
+        accumulating = true;
+        startT = now_s();
+      }
+    }
+    function stopAccumulation() {
+      if (accumulating) {
+        elapsedBase += now_s() - startT;
+        startT = null;
+        accumulating = false;
+      }
+    }
+    function resetAccumulation() {
+      accumulating = false;
+      startT = null;
+      elapsedBase = 0;
+      resetCounters();
+    }
+
+    const pad2 = (n) => String(n).padStart(2, "0");
+    function formatElapsed(sec) {
+      const m = Math.floor(sec / 60),
+        s = sec % 60;
+      return pad2(m) + ":" + s.toFixed(1).padStart(4, "0");
+    }
+
+    function exportRun() {
+      const e = elapsedNow();
+      const d = new Date();
+      const date =
+        d.getFullYear() +
+        "-" +
+        pad2(d.getMonth() + 1) +
+        "-" +
+        pad2(d.getDate());
+      const clock =
+        pad2(d.getHours()) +
+        ":" +
+        pad2(d.getMinutes()) +
+        ":" +
+        pad2(d.getSeconds());
+      const stamp = date.replace(/-/g, "") + "_" + clock.replace(/:/g, "");
+      const lines = [
+        "========================================",
+        "  miniMazinga - Exported Run Statistics ",
+        "========================================",
+        "Timestamp:      " + date + " " + clock,
+        "Elapsed Time:   " + formatElapsed(e) + " (" + e.toFixed(2) + " s)",
+        "Total Events:   " + accumCount,
+        "----------------------------------------",
+        "Accumulated Sums (Above Threshold):",
+      ];
+      for (const c of CH)
+        lines.push(
+          "  Channel " +
+          String(c).padStart(2) +
+          " (" +
+          (c < N_TOP ? "T" : "B") +
+          c +
+          "): " +
+          sums[c],
+        );
+      lines.push("----------------------------------------");
+      lines.push("Accumulated Coincidences (Top & Bottom):");
+      for (const t of TOP)
+        for (const b of BOT)
+          lines.push("  T" + t + " & B" + b + ": " + coinc[t + "-" + b]);
+      lines.push("========================================\n");
+
+      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "export_" + stamp + ".txt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    // ---- build the DOM --------------------------------------------------
+    const cell = (title, inner, cls = "", id = "") =>
+      `<div class="cell ${cls}"${id ? ` id="${id}"` : ""}><h3>${title}</h3>${inner}</div>`;
+
+    const DIST_ROWS = 15,
+      BAR_W = 4; // same geometry as the Python script
+    function angle(i, j) {
+      return (
+        (Math.atan2((i - j) * BAR_W, DIST_ROWS) * 180) /
+        Math.PI
+      ).toFixed(1);
+    }
+
+    let h = "";
+    for (const t of TOP)
+      for (const b of BOT)
+        h += cell(
+          `T${t} &amp; B${b}`,
+          `<div class="led led-small" id="coinc-${t}-${b}"></div>`,
+          "coinc-cell",
+        );
+    $("coincGrid").innerHTML = h;
+
+    h = "";
+    for (const t of TOP)
+      h += cell(`Top ${t}`, `<div class="value sum" id="sum-${t}">0</div>`);
+    for (const b of BOT)
+      h += cell(
+        `Bottom ${b}`,
+        `<div class="value sum" id="sum-${b}">0</div>`,
+      );
+    $("sumGrid").innerHTML = h;
+
+    h = "";
+    TOP.forEach((t, i) =>
+      BOT.forEach((b, j) => {
+        h += cell(
+          `T${t} &amp; B${b}`,
+          `<div class="value sum" id="coincsum-${t}-${b}">0</div>`,
+          "coinc-cell",
+        );
+      }),
+    );
+    $("coincSumGrid").innerHTML = h;
+
+    $("ledTop").innerHTML = TOP.map((c) =>
+      cell(
+        `Top ${c}`,
+        `<div class="led" id="led-${c}"></div>`,
+        "",
+        `cell-${c}`,
+      ),
+    ).join("");
+    $("ledBottom").innerHTML = BOT.map((c) =>
+      cell(
+        `Bottom ${c}`,
+        `<div class="led" id="led-${c}"></div>`,
+        "",
+        `cell-${c}`,
+      ),
+    ).join("");
+
+    // ---- status LED arrows ----------------------------------------------
+    const SVGNS = "http://www.w3.org/2000/svg";
+    const arrowLines = {};
+    let arrowsDrawn = false;
+
+    function drawArrows() {
+      const wrap = $("wrap").getBoundingClientRect();
+      const svg = $("arrows");
+      svg.querySelectorAll("line").forEach((l) => l.remove());
+      const SPREAD = 8;
+      TOP.forEach((t, i) => {
+        const tr = $("cell-" + t).getBoundingClientRect();
+        BOT.forEach((b, j) => {
+          const br = $("cell-" + b).getBoundingClientRect();
+          const line = document.createElementNS(SVGNS, "line");
+          line.setAttribute(
+            "x1",
+            tr.left +
+            tr.width / 2 +
+            (j - (N_BOTTOM - 1) / 2) * SPREAD -
+            wrap.left,
+          );
+          line.setAttribute("y1", tr.bottom - wrap.top);
+          line.setAttribute(
+            "x2",
+            br.left +
+            br.width / 2 +
+            (i - (N_TOP - 1) / 2) * SPREAD -
+            wrap.left,
+          );
+          line.setAttribute("y2", br.top - wrap.top - 2);
+          line.setAttribute("marker-end", "url(#head-off)");
+          svg.appendChild(line);
+          arrowLines[t + "-" + b] = line;
+        });
+      });
+      arrowsDrawn = true;
+    }
+
+    function setArrow(line, on) {
+      if (on) {
+        if (!line.classList.contains("on")) {
+          line.classList.add("on");
+          line.setAttribute("marker-end", "url(#head-on)");
+          line.parentNode.appendChild(line); // bring lit arrow to front
+        }
+      } else if (line.classList.contains("on")) {
+        line.classList.remove("on");
+        line.setAttribute("marker-end", "url(#head-off)");
+      }
+    }
+
+    // ---- views ----------------------------------------------------------
+    function showView() {
+      const leds = location.hash === "#leds";
+      $("view-data").hidden = leds;
+      $("view-leds").hidden = !leds;
+      $("navData").classList.toggle("active", !leds);
+      $("navLeds").classList.toggle("active", leds);
+      if (leds) requestAnimationFrame(drawArrows);
+    }
+    window.addEventListener("hashchange", showView);
+    window.addEventListener("resize", () => {
+      if (!$("view-leds").hidden) drawArrows();
+    });
+
+    // ---- render loop ----------------------------------------------------
+    function render() {
+      const leds = !$("view-leds").hidden;
+      for (const c of CH) $("led-" + c).classList.toggle("on", above[c]);
+
+      if (leds) {
+        if (arrowsDrawn)
+          for (const t of TOP)
+            for (const b of BOT)
+              setArrow(arrowLines[t + "-" + b], above[t] && above[b]);
+        return;
+      }
+
+      for (const c of CH) $("sum-" + c).textContent = sums[c];
+      for (const t of TOP)
+        for (const b of BOT) {
+          const k = t + "-" + b;
+          $("coinc-" + k).classList.toggle("on", above[t] && above[b]);
+          $("coincsum-" + k).textContent = coinc[k];
+        }
+      $("countLabel").textContent = accumCount;
+      $("timer").textContent = formatElapsed(elapsedNow());
+      $("timer").classList.toggle("running", accumulating);
+      $("status").textContent = accumulating
+        ? "accumulating..."
+        : replayFinished
+          ? "stopped (CSV finished)"
+          : "stopped";
+    }
+    setInterval(render, 100);
+
+    // ---- wiring ---------------------------------------------------------
+    $("startBtn").onclick = startAccumulation;
+    $("stopBtn").onclick = stopAccumulation;
+    $("resetBtn").onclick = resetAccumulation;
+    $("exportBtn").onclick = exportRun;
+    if (masks.length) startReplay();
+    document.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      document.body.classList.add("dragging");
+    });
+    document.addEventListener("dragleave", (e) => {
+      if (!e.relatedTarget) document.body.classList.remove("dragging");
+    });
+    document.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      document.body.classList.remove("dragging");
+      const f = e.dataTransfer.files[0];
+      if (f) loadText(await f.text(), f.name);
+    });
+
+    showView();
+    fetchCsv("mazinga_layer_masks.csv");
+  </script>
+</body>
+
+</html>
