@@ -440,7 +440,7 @@
 
     function startReplay() {
       if (replayTimer) clearTimeout(replayTimer);
-      idx = 0;
+      idx = Math.floor(Math.random() * masks.length);
       replayFinished = false;
       nextTime = performance.now();
       tick();
