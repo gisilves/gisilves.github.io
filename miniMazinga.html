@@ -39,20 +39,16 @@
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
     }
 
-    nav {
-      margin: 0 0 6px 4px;
-      font-size: 12px;
+    .layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: flex-start;
     }
 
-    nav a {
-      color: #38bdf8;
-      margin-right: 12px;
-      text-decoration: none;
-    }
-
-    nav a.active {
-      font-weight: 700;
-      text-decoration: underline;
+    .layout>section {
+      flex: 1 1 480px;
+      min-width: 0;
     }
 
     .grid {
@@ -79,6 +75,10 @@
 
     .spacer {
       height: 500px;
+    }
+
+    .spacer-top {
+      height: 60px;
     }
 
     .arrows {
@@ -280,11 +280,7 @@
 
 <body>
   <h1>miniMazinga Viewer</h1>
-  <nav>
-    <a href="#data" id="navData">Data</a>
-    <a href="#leds" id="navLeds">Status LEDs</a>
-  </nav>
-
+  <div class="layout">
   <section id="view-data">
     <h2>Coincidence: top (T) AND bottom (B)</h2>
     <div class="grid coinc" id="coincGrid"></div>
@@ -305,7 +301,9 @@
     <div class="grid coinc" id="coincSumGrid"></div>
   </section>
 
-  <section id="view-leds" hidden>
+  <section id="view-leds">
+    <h2>Status LEDs</h2>
+    <div class="spacer-top"></div>
     <div class="wrap" id="wrap">
       <div class="grid row" id="ledTop"></div>
       <div class="spacer"></div>
@@ -322,6 +320,7 @@
       </svg>
     </div>
   </section>
+  </div>
 
   <script>
     // ---------------------------------------------------------------------
@@ -440,7 +439,7 @@
 
     function startReplay() {
       if (replayTimer) clearTimeout(replayTimer);
-      idx = Math.floor(Math.random() * masks.length);
+      idx = masks.length ? Math.floor(Math.random() * masks.length) : 0;
       replayFinished = false;
       nextTime = performance.now();
       tick();
@@ -646,31 +645,16 @@
     }
 
     // ---- views ----------------------------------------------------------
-    function showView() {
-      const leds = location.hash === "#leds";
-      $("view-data").hidden = leds;
-      $("view-leds").hidden = !leds;
-      $("navData").classList.toggle("active", !leds);
-      $("navLeds").classList.toggle("active", leds);
-      if (leds) requestAnimationFrame(drawArrows);
-    }
-    window.addEventListener("hashchange", showView);
-    window.addEventListener("resize", () => {
-      if (!$("view-leds").hidden) drawArrows();
-    });
+    window.addEventListener("resize", drawArrows);
 
     // ---- render loop ----------------------------------------------------
     function render() {
-      const leds = !$("view-leds").hidden;
       for (const c of CH) $("led-" + c).classList.toggle("on", above[c]);
 
-      if (leds) {
-        if (arrowsDrawn)
-          for (const t of TOP)
-            for (const b of BOT)
-              setArrow(arrowLines[t + "-" + b], above[t] && above[b]);
-        return;
-      }
+      if (arrowsDrawn)
+        for (const t of TOP)
+          for (const b of BOT)
+            setArrow(arrowLines[t + "-" + b], above[t] && above[b]);
 
       for (const c of CH) $("sum-" + c).textContent = sums[c];
       for (const t of TOP)
@@ -710,7 +694,7 @@
       if (f) loadText(await f.text(), f.name);
     });
 
-    showView();
+    requestAnimationFrame(drawArrows);
     fetchCsv("mazinga_layer_masks_customGG.csv");
   </script>
 </body>
